@@ -1,6 +1,6 @@
 {
   "name": "Remix Bitacora-Hablada",
-  "description": "Imported from GitHub: Yeremy-B/Bitacora-Hablada",
+  "description": "Bitácora Hablada 2.0 - Dictado por voz, guardado automático, lectura y PWA offline",
   "requestFramePermissions": [
     "microphone"
   ],

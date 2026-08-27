@@ -228,6 +228,7 @@
   let lastClearedTags = '';
 
   function clearEditor(){
+    if(autoSaveTimeout) clearTimeout(autoSaveTimeout);
     const text = el.editor.value;
     if(!text.trim()){
       setStatus('El editor ya está vacío.');
@@ -979,8 +980,46 @@
     )).slice(0, 8);
   }
 
-  // ---------- NOTE ACTIONS ----------
+  // ---------- NOTE ACTIONS & AUTOSAVE ----------
+  let autoSaveTimeout = null;
+
+  function triggerAutoSave(){
+    if(autoSaveTimeout) clearTimeout(autoSaveTimeout);
+    autoSaveTimeout = setTimeout(async () => {
+      await autoSaveDraft();
+    }, 700);
+  }
+
+  async function autoSaveDraft(){
+    const text = el.editor.value.trim();
+    if(!text) return;
+    const tags = parseTags(el.tagsInput.value);
+
+    if(state.currentNoteId){
+      const idx = state.notes.findIndex(n => n.id === state.currentNoteId);
+      if(idx !== -1){
+        const current = state.notes[idx];
+        const tagsChanged = JSON.stringify(current.tags || []) !== JSON.stringify(tags);
+        if(current.text === text && !tagsChanged){
+          return;
+        }
+        current.text = text;
+        current.tags = tags;
+        current.updatedAt = Date.now();
+      }
+    } else {
+      const note = { id: uid(), text, createdAt: Date.now(), tags, pinned: false };
+      state.notes.unshift(note);
+      state.currentNoteId = note.id;
+    }
+    await persistNotes(state.activeFolderId, state.notes);
+    renderNotes();
+    renderFolders();
+    setStatus('Guardado automático ✓');
+  }
+
   async function saveNote(){
+    if(autoSaveTimeout) clearTimeout(autoSaveTimeout);
     const text = el.editor.value.trim();
     if(!text){ setStatus('Escribe algo antes de guardar.', true); return; }
     const tags = parseTags(el.tagsInput.value);
@@ -994,7 +1033,7 @@
       }
     } else {
       const note = { id: uid(), text, createdAt: Date.now(), tags, pinned: false };
-      state.notes.push(note);
+      state.notes.unshift(note);
       state.currentNoteId = note.id;
     }
     await persistNotes(state.activeFolderId, state.notes);
@@ -1320,7 +1359,8 @@
     }
     try {
       recognition = new SR();
-      recognition.lang = 'es-ES';
+      const userLang = (navigator.language || '').replace(/_/g, '-');
+      recognition.lang = userLang.toLowerCase().startsWith('es') ? userLang : 'es-CL';
       recognition.continuous = true;
       recognition.interimResults = true;
 
@@ -1347,6 +1387,7 @@
           }
         }
         el.editor.value = finalText + interim;
+        triggerAutoSave();
       };
 
       recognition.onerror = () => {
@@ -1388,6 +1429,8 @@
   }
 
   // ---------- EVENTS ----------
+  el.editor.addEventListener('input', triggerAutoSave);
+  el.tagsInput.addEventListener('input', triggerAutoSave);
   el.addFolderBtn.addEventListener('click', addFolder);
   el.newFolderInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') addFolder(); });
   el.playBtn.addEventListener('click', () => speak());
@@ -1613,7 +1656,9 @@
     setStatus('');
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
+        navigator.serviceWorker.register('./sw.js').catch((err) => {
+          console.warn('[SW] Error al registrar service worker:', err);
+        });
       });
     }
   })();
