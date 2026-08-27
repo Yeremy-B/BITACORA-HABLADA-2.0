@@ -1,25 +1,24 @@
 // Bitácora Hablada Service Worker v2.0.0
 const CACHE_NAME = 'bitacora-hablada-v2.0.0';
 
-// Archivos esenciales del shell de la aplicación (rutas relativas para GitHub Pages)
-const STATIC_ASSETS = [
-  './',
-  './index.html',
-  './manifest.json',
-  './icon-192.png',
-  './icon-512.png',
-  './src/style.css',
-  './src/main.js'
-];
-
-// Instalación: cachear los archivos estáticos básicos
+// Instalación: cachear los archivos estáticos usando el scope base
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(async (cache) => {
-      // Intentar agregar los assets sin que uno falle e interrumpa los demás
+      const base = self.registration.scope;
+      const assets = [
+        base,
+        new URL('index.html', base).href,
+        new URL('manifest.json', base).href,
+        new URL('icon-192.png', base).href,
+        new URL('icon-512.png', base).href,
+        new URL('src/style.css', base).href,
+        new URL('src/main.js', base).href
+      ];
+
       await Promise.allSettled(
-        STATIC_ASSETS.map((asset) => cache.add(asset).catch((err) => {
-          console.warn('[SW] No se pudo pre-cachear:', asset, err);
+        assets.map((assetUrl) => cache.add(assetUrl).catch((err) => {
+          console.warn('[SW] No se pudo pre-cachear:', assetUrl, err);
         }))
       );
     }).then(() => self.skipWaiting())
@@ -41,21 +40,18 @@ self.addEventListener('activate', (event) => {
 });
 
 // Estrategia de Fetch:
-// 1. Para HTML y páginas: Network-first con fallback a caché (para tener siempre la versión fresca cuando haya internet)
-// 2. Para CSS, JS, imágenes y fuentes: Stale-While-Revalidate o Cache-First, guardando en caché dinámica
+// 1. Para HTML y navegación: Network-first con fallback a caché
+// 2. Para recursos (CSS, JS, iconos, fuentes): Stale-While-Revalidate
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
-
-  // No interceptar peticiones a extensiones de chrome ni protocolos no soportados
   if (!url.protocol.startsWith('http')) return;
 
   const isNavigation = event.request.mode === 'navigate' || 
     (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html'));
 
   if (isNavigation) {
-    // Para navegación / HTML: Primero Red, con respaldo en Caché
     event.respondWith(
       fetch(event.request)
         .then((response) => {
@@ -68,13 +64,14 @@ self.addEventListener('fetch', (event) => {
         .catch(async () => {
           const cached = await caches.match(event.request);
           if (cached) return cached;
-          return caches.match('./index.html') || caches.match('/index.html') || caches.match('./');
+          const base = self.registration.scope;
+          return caches.match(new URL('index.html', base).href) || caches.match(base);
         })
     );
     return;
   }
 
-  // Para assets (CSS, JS, iconos, fuentes): Cache First con actualización en segundo plano (Stale-While-Revalidate)
+  // Stale-While-Revalidate para el resto de assets
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request)
@@ -86,7 +83,7 @@ self.addEventListener('fetch', (event) => {
           return networkResponse;
         })
         .catch(() => {
-          // Si no hay red y no está en caché, simplemente no retorna nada
+          // Si falla red y no hay caché, no lanza error fatal
         });
 
       return cachedResponse || fetchPromise;

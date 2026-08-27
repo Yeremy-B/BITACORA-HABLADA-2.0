@@ -1348,12 +1348,15 @@
 
   // ---------- DICTATION (speech to text) ----------
   let recognition = null;
+  let isManualDictationActive = false;
   const SR = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
 
   function setupDictation(){
     if(!SR){
       if(el.dictateBtn){
-        el.dictateBtn.title = 'Dictado por voz no disponible en este navegador';
+        el.dictateBtn.disabled = true;
+        el.dictateBtn.title = 'Dictado por voz no soportado en este navegador';
+        el.dictateBtn.textContent = '🎙️ No disponible';
       }
       return;
     }
@@ -1390,13 +1393,26 @@
         triggerAutoSave();
       };
 
-      recognition.onerror = () => {
+      recognition.onerror = (e) => {
+        if(e.error === 'no-speech'){
+          // Silencio temporal, no detener si el usuario sigue dictando
+          return;
+        }
         setStatus('No se pudo escuchar el micrófono. Revisa los permisos.', true);
         stopDictation();
       };
 
       recognition.onend = () => {
-        stopDictation();
+        // Si el usuario no pulsó "Detener", reiniciar automáticamente para dictado continuo
+        if(isManualDictationActive){
+          try {
+            recognition.start();
+          } catch(e){
+            stopDictation();
+          }
+        } else {
+          stopDictation();
+        }
       };
     } catch(err) {
       console.warn('SpeechRecognition initialization error:', err);
@@ -1405,26 +1421,37 @@
   }
 
   function stopDictation(){
+    isManualDictationActive = false;
     state.recognizing = false;
-    if(el.dictateBtn){
+    if(el.dictateBtn && SR){
       el.dictateBtn.classList.remove('on');
       el.dictateBtn.textContent = '🎙️ Dictar';
     }
   }
 
   function toggleDictation(){
+    if(!SR){
+      setStatus('Dictado por voz no compatible con este navegador.', true);
+      return;
+    }
     if(!recognition){
       setupDictation();
     }
     if(!recognition){
-      setStatus('Dictado por voz no compatible con este navegador móvil.', true);
+      setStatus('No se pudo iniciar el servicio de dictado.', true);
       return;
     }
-    if(state.recognizing){
+    if(state.recognizing || isManualDictationActive){
+      isManualDictationActive = false;
       try { recognition.stop(); } catch(e){}
+      stopDictation();
     } else {
+      isManualDictationActive = true;
       try { recognition.start(); }
-      catch(e){ setStatus('No se pudo iniciar el micrófono.', true); }
+      catch(e){
+        isManualDictationActive = false;
+        setStatus('No se pudo iniciar el micrófono.', true);
+      }
     }
   }
 
