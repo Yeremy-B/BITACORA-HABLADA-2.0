@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bitácora Hablada</title>
+<meta name="theme-color" content="#1f5e5b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bitácora">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -139,6 +146,14 @@ body.dark-mode .search-input::placeholder{
 body.dark-mode .notes-count-badge{
   background:rgba(255,255,255,0.06);
   color:#A4B2BA;
+}
+body.dark-mode .sort-select-label{
+  color:var(--text-muted);
+}
+body.dark-mode .sort-select{
+  background:#141B20;
+  border-color:var(--border);
+  color:#F6F2E9;
 }
 body.dark-mode .view-mode-toggle{
   background:#141B20;
@@ -753,6 +768,8 @@ textarea#editor::placeholder{color:#AEB6AC;font-style:italic;}
 .mobile-new-note-btn{ display:none; }
 .notes-pane{
   flex:1;
+  display:flex;
+  flex-direction:column;
   padding:24px 40px;
   overflow-y:auto;
 }
@@ -760,8 +777,10 @@ textarea#editor::placeholder{color:#AEB6AC;font-style:italic;}
   display:flex;
   justify-content:space-between;
   align-items:center;
-  margin-bottom:12px;
-  gap:10px;
+  margin-bottom:14px;
+  gap:12px;
+  flex-shrink:0;
+  width:100%;
 }
 .notes-header-left{
   display:flex;
@@ -771,7 +790,7 @@ textarea#editor::placeholder{color:#AEB6AC;font-style:italic;}
 }
 .notes-pane-header h3{
   font-family:'Fraunces',serif;
-  font-size:17px;
+  font-size:18px;
   font-weight:600;
   margin:0;
 }
@@ -779,27 +798,24 @@ textarea#editor::placeholder{color:#AEB6AC;font-style:italic;}
   font-family:'IBM Plex Mono',monospace;
   font-size:11.5px;
   color:var(--text-muted);
-}
-.notes-controls{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  flex-wrap:wrap;
-  margin-bottom:14px;
+  background:rgba(30,42,51,0.05);
+  padding:2px 8px;
+  border-radius:999px;
 }
 .search-row{
   display:flex;
   align-items:center;
   gap:10px;
   margin-bottom:12px;
-  flex-wrap:wrap;
+  width:100%;
+  flex-shrink:0;
 }
 .search-input-wrapper{
   position:relative;
   flex:1;
   display:flex;
   align-items:center;
-  min-width:160px;
+  min-width:0;
 }
 .search-input{
   flex:1;
@@ -812,6 +828,7 @@ textarea#editor::placeholder{color:#AEB6AC;font-style:italic;}
   border-radius:8px;
   padding:9px 32px 9px 12px;
   outline:none;
+  box-sizing:border-box;
 }
 .search-input:focus{border-color:var(--teal);}
 .search-clear-btn{
@@ -836,30 +853,59 @@ textarea#editor::placeholder{color:#AEB6AC;font-style:italic;}
   white-space:nowrap;
   cursor:pointer;
   user-select:none;
+  flex-shrink:0;
 }
 .search-folder-badge{
   font-family:'IBM Plex Mono',monospace;
   color:var(--teal);
   font-weight:600;
 }
-.sort-select{
-  font-family:'Inter',sans-serif;
-  font-size:12.5px;
-  color:var(--text-dark);
-  background:var(--paper-card);
-  border:1px solid var(--border);
-  border-radius:7px;
-  padding:7px 8px;
-  outline:none;
-  cursor:pointer;
+.notes-controls{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  margin-bottom:14px;
+  width:100%;
+  flex-shrink:0;
 }
-.sort-select:focus{border-color:var(--teal);}
 .notes-controls-top{
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:10px;
-  flex-wrap:wrap;
+  width:100%;
+}
+.sort-select-wrapper{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex:1;
+  min-width:0;
+}
+.sort-select-label{
+  font-family:'Inter',sans-serif;
+  font-size:12px;
+  font-weight:600;
+  color:var(--text-muted);
+  white-space:nowrap;
+}
+.sort-select{
+  font-family:'Inter',sans-serif;
+  font-size:12.5px;
+  font-weight:500;
+  color:var(--text-dark);
+  background:var(--paper-card);
+  border:1px solid var(--border);
+  border-radius:7px;
+  padding:7px 10px;
+  outline:none;
+  cursor:pointer;
+  transition:border-color 0.15s, box-shadow 0.15s;
+  max-width:230px;
+}
+.sort-select:focus{
+  border-color:var(--teal);
+  box-shadow:0 0 0 2px rgba(47,107,99,0.12);
 }
 .view-mode-toggle{
   display:flex;
@@ -868,6 +914,7 @@ textarea#editor::placeholder{color:#AEB6AC;font-style:italic;}
   border-radius:7px;
   padding:2px;
   gap:2px;
+  flex-shrink:0;
 }
 .view-mode-btn{
   background:none;
@@ -895,6 +942,7 @@ textarea#editor::placeholder{color:#AEB6AC;font-style:italic;}
   gap:6px;
   flex-wrap:wrap;
   align-items:center;
+  width:100%;
 }
 .tag-chip{
   font-family:'IBM Plex Mono',monospace;
@@ -1423,10 +1471,12 @@ textarea#editor::placeholder{color:#AEB6AC;font-style:italic;}
   .mobile-new-note-btn:active{ transform:scale(0.97); }
 
   .search-row{
+    display:flex;
     flex-direction:column;
     align-items:stretch;
     gap:8px;
     margin-bottom:12px;
+    width:100%;
   }
   .search-input-wrapper{
     width:100%;
@@ -1451,12 +1501,62 @@ textarea#editor::placeholder{color:#AEB6AC;font-style:italic;}
     align-items:stretch;
     gap:10px;
     margin-bottom:14px;
+    background:var(--paper-card);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:10px 12px;
+    box-shadow:0 1px 4px rgba(30,42,51,0.03);
+    width:100%;
+  }
+  .notes-controls-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    width:100%;
+  }
+  .sort-select-wrapper{
+    flex:1;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    min-width:0;
+  }
+  .sort-select-label{
+    font-size:11.5px;
+    color:var(--text-muted);
+    font-weight:700;
   }
   .sort-select{
+    flex:1;
     width:100%;
-    padding:9px 10px;
-    font-size:13px;
-    border-radius:8px;
+    max-width:none;
+    min-width:0;
+    padding:8px 8px;
+    font-size:12.5px;
+    font-weight:600;
+    border-radius:7px;
+    background:var(--paper);
+  }
+  .view-mode-toggle{
+    flex-shrink:0;
+  }
+  @media (max-width: 420px){
+    .notes-controls-top{
+      flex-direction:column;
+      align-items:stretch;
+      gap:8px;
+    }
+    .sort-select-wrapper{
+      width:100%;
+    }
+    .view-mode-toggle{
+      width:100%;
+    }
+    .view-mode-btn{
+      flex:1;
+      justify-content:center;
+    }
   }
   .tag-filter-row{
     display:flex;
@@ -1657,6 +1757,7 @@ textarea#editor::placeholder{color:#AEB6AC;font-style:italic;}
           <span>＋ Nueva nota</span>
         </button>
       </div>
+
       <div class="search-row">
         <div class="search-input-wrapper">
           <input type="text" id="searchInput" class="search-input" placeholder="🔍 Buscar en las notas…">
@@ -1667,13 +1768,17 @@ textarea#editor::placeholder{color:#AEB6AC;font-style:italic;}
           Todas las carpetas
         </label>
       </div>
+
       <div class="notes-controls">
         <div class="notes-controls-top">
-          <select class="sort-select" id="sortSelect">
-            <option value="recientes">Más recientes primero</option>
-            <option value="antiguas">Más antiguas primero</option>
-            <option value="alfabetico">Alfabético (A-Z)</option>
-          </select>
+          <div class="sort-select-wrapper">
+            <label class="sort-select-label" for="sortSelect">Orden:</label>
+            <select class="sort-select" id="sortSelect" aria-label="Ordenar notas">
+              <option value="recientes">⏱️ Más recientes primero</option>
+              <option value="antiguas">📅 Más antiguas primero</option>
+              <option value="alfabetico">🔤 Alfabético (A-Z)</option>
+            </select>
+          </div>
           <div class="view-mode-toggle" id="viewModeToggle" role="group" aria-label="Modo de vista">
             <button class="view-mode-btn active" id="viewModeDetailedBtn" title="Vista previa detallada con extracto y estadísticas" type="button">
               <span>🖼️ Previa</span>
@@ -1685,6 +1790,7 @@ textarea#editor::placeholder{color:#AEB6AC;font-style:italic;}
         </div>
         <div class="tag-filter-row" id="tagFilterRow"></div>
       </div>
+
       <div id="notesList"></div>
     </div>
   </div>
@@ -1982,9 +2088,34 @@ textarea#editor::placeholder{color:#AEB6AC;font-style:italic;}
   }
 
   function formatDate(ts){
+    if(!ts) return '';
+    const now = Date.now();
+    const diff = now - ts;
+    if(diff >= 0 && diff < 60000){
+      return 'Ahora mismo';
+    }
+    if(diff >= 60000 && diff < 3600000){
+      const mins = Math.floor(diff / 60000);
+      return `Hace ${mins} min`;
+    }
     const d = new Date(ts);
-    return d.toLocaleDateString('es-ES',{day:'2-digit',month:'short'}) + ' · ' +
-           d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+    const today = new Date();
+    const isToday = d.getDate() === today.getDate() &&
+                    d.getMonth() === today.getMonth() &&
+                    d.getFullYear() === today.getFullYear();
+    const timeStr = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    if(isToday){
+      return `Hoy, ${timeStr}`;
+    }
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = d.getDate() === yesterday.getDate() &&
+                        d.getMonth() === yesterday.getMonth() &&
+                        d.getFullYear() === yesterday.getFullYear();
+    if(isYesterday){
+      return `Ayer, ${timeStr}`;
+    }
+    return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }) + ' · ' + timeStr;
   }
 
   // ---------- STORAGE (localStorage del navegador, funciona sin conexión) ----------
@@ -3309,6 +3440,11 @@ textarea#editor::placeholder{color:#AEB6AC;font-style:italic;}
     setupDictation();
     await loadTrash();
     setStatus('');
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
   })();
 })();
 
