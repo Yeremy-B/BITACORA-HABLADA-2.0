@@ -12,7 +12,8 @@
     viewMode: 'detailed',
     tagFilter: null,
     searchQuery: '',
-    searchGlobal: false
+    searchGlobal: false,
+    autoSave: true
   };
   const notesCache = {}; // folderId -> notas (para la vista previa al pasar el mouse)
 
@@ -43,6 +44,11 @@
     searchClearBtn: document.getElementById('searchClearBtn'),
     statusLine: document.getElementById('statusLine'),
     previewVoiceBtn: document.getElementById('previewVoiceBtn'),
+    editorOptionsBtn: document.getElementById('editorOptionsBtn'),
+    editorOptionsMenu: document.getElementById('editorOptionsMenu'),
+    autoSaveCheckbox: document.getElementById('autoSaveCheckbox'),
+    autoSaveStatusLabel: document.getElementById('autoSaveStatusLabel'),
+    autoSaveOptionRow: document.getElementById('autoSaveOptionRow'),
     sidebar: document.getElementById('sidebar'),
     sidebarBackdrop: document.getElementById('sidebarBackdrop'),
     hamburgerBtn: document.getElementById('hamburgerBtn'),
@@ -987,7 +993,38 @@
   // ---------- NOTE ACTIONS & AUTOSAVE ----------
   let autoSaveTimeout = null;
 
+  function updateAutoSaveUI(enabled){
+    state.autoSave = enabled;
+    if(el.autoSaveCheckbox){
+      el.autoSaveCheckbox.checked = enabled;
+    }
+    if(el.autoSaveStatusLabel){
+      el.autoSaveStatusLabel.textContent = enabled
+        ? 'Activado (guarda al escribir)'
+        : 'Desactivado (guarda manualmente)';
+    }
+  }
+
+  async function setAutoSave(enabled, notify = true){
+    updateAutoSaveUI(enabled);
+    if(!enabled && autoSaveTimeout){
+      clearTimeout(autoSaveTimeout);
+      autoSaveTimeout = null;
+    }
+    await storageSet('autoSave', enabled ? 'true' : 'false');
+    if(notify){
+      setStatus(enabled ? 'Guardado automático activado ✓' : 'Guardado automático desactivado ⏸');
+    }
+  }
+
+  async function initAutoSave(){
+    const saved = await storageGet('autoSave');
+    const enabled = (saved === null || saved === 'true');
+    updateAutoSaveUI(enabled);
+  }
+
   function triggerAutoSave(){
+    if(!state.autoSave) return;
     if(autoSaveTimeout) clearTimeout(autoSaveTimeout);
     autoSaveTimeout = setTimeout(async () => {
       await autoSaveDraft();
@@ -1353,13 +1390,13 @@
   // ---------- DICTATION (speech to text) ----------
   let recognition = null;
   let textBeforeDictation = '';
-  const SR = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
+  const SR = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition || null) : null;
 
   function setupDictation(){
     if(!SR){
       if(el.dictateBtn){
         el.dictateBtn.disabled = true;
-        el.dictateBtn.title = 'Dictado por voz no soportado en este navegador';
+        el.dictateBtn.title = 'Dictado por voz no disponible en este navegador';
         el.dictateBtn.textContent = '🎙️ No disponible';
       }
       return;
@@ -1401,10 +1438,16 @@
       };
 
       recognition.onerror = (e) => {
-        if(e.error === 'no-speech'){
+        if(e && e.error === 'no-speech'){
           return;
         }
-        setStatus('No se pudo escuchar el micrófono. Revisa los permisos.', true);
+        if(e && e.error === 'not-allowed'){
+          setStatus('Permiso de micrófono denegado. Actívalo en la barra del navegador.', true);
+        } else if(e && e.error === 'audio-capture'){
+          setStatus('No se detectó ningún micrófono conectado.', true);
+        } else {
+          setStatus('No se pudo acceder al micrófono.', true);
+        }
         stopDictation();
       };
 
@@ -1415,6 +1458,11 @@
     } catch(err) {
       console.warn('SpeechRecognition initialization error:', err);
       recognition = null;
+      if(el.dictateBtn){
+        el.dictateBtn.disabled = true;
+        el.dictateBtn.title = 'No se pudo iniciar el servicio de dictado';
+        el.dictateBtn.textContent = '🎙️ No disponible';
+      }
     }
   }
 
@@ -1429,14 +1477,14 @@
 
   function toggleDictation(){
     if(!SR){
-      setStatus('Dictado por voz no compatible con este navegador.', true);
+      setStatus('El dictado por voz requiere Google Chrome, Edge o Safari moderno.', true);
       return;
     }
     if(!recognition){
       setupDictation();
     }
     if(!recognition){
-      setStatus('No se pudo iniciar el servicio de dictado.', true);
+      setStatus('No se pudo inicializar el micrófono en este dispositivo.', true);
       return;
     }
     if(state.recognizing){
@@ -1447,7 +1495,16 @@
       try {
         recognition.start();
       } catch(e){
-        setStatus('No se pudo iniciar el micrófono.', true);
+        try {
+          recognition.stop();
+        } catch(stopErr){}
+        setTimeout(() => {
+          try {
+            recognition.start();
+          } catch(retryErr){
+            setStatus('No se pudo iniciar el micrófono. Revisa los permisos.', true);
+          }
+        }, 150);
       }
     }
   }
@@ -1624,6 +1681,61 @@
     window.addEventListener('click', unlockMobileVoices, { passive: true });
   }
 
+  // ---------- MENÚ DE OPCIONES DEL EDITOR (3 PUNTOS) ----------
+  function toggleEditorOptionsMenu(e){
+    if(e) e.stopPropagation();
+    const isOpen = el.editorOptionsMenu && el.editorOptionsMenu.classList.contains('open');
+    if(isOpen){
+      closeEditorOptionsMenu();
+    } else {
+      openEditorOptionsMenu();
+    }
+  }
+
+  function openEditorOptionsMenu(){
+    if(!el.editorOptionsMenu) return;
+    el.editorOptionsMenu.classList.add('open');
+    if(el.editorOptionsBtn) el.editorOptionsBtn.classList.add('active');
+    document.addEventListener('click', onOutsideEditorMenuClick);
+    document.addEventListener('keydown', onEditorMenuKeyDown);
+  }
+
+  function closeEditorOptionsMenu(){
+    if(!el.editorOptionsMenu) return;
+    el.editorOptionsMenu.classList.remove('open');
+    if(el.editorOptionsBtn) el.editorOptionsBtn.classList.remove('active');
+    document.removeEventListener('click', onOutsideEditorMenuClick);
+    document.removeEventListener('keydown', onEditorMenuKeyDown);
+  }
+
+  function onOutsideEditorMenuClick(e){
+    if(el.editorOptionsMenu && !el.editorOptionsMenu.contains(e.target) && el.editorOptionsBtn && !el.editorOptionsBtn.contains(e.target)){
+      closeEditorOptionsMenu();
+    }
+  }
+
+  function onEditorMenuKeyDown(e){
+    if(e.key === 'Escape'){
+      closeEditorOptionsMenu();
+    }
+  }
+
+  if(el.editorOptionsBtn){
+    el.editorOptionsBtn.addEventListener('click', toggleEditorOptionsMenu);
+  }
+  if(el.autoSaveCheckbox){
+    el.autoSaveCheckbox.addEventListener('change', (e) => {
+      setAutoSave(e.target.checked);
+    });
+  }
+  if(el.autoSaveOptionRow){
+    el.autoSaveOptionRow.addEventListener('click', (e) => {
+      if(e.target === el.autoSaveCheckbox || e.target.closest('.toggle-switch')) return;
+      const next = !el.autoSaveCheckbox.checked;
+      setAutoSave(next);
+    });
+  }
+
   // ---------- MODO CLARO / OSCURO ----------
   function updateThemeUI(isDark){
     if(isDark){
@@ -1666,6 +1778,7 @@
   // ---------- INIT ----------
   (async function init(){
     await initTheme();
+    await initAutoSave();
     handleResize();
     setStatus('Cargando tu bitácora…');
     await loadFolders();

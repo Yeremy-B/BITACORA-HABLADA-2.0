@@ -106,6 +106,22 @@
         <div class="toolbar-group">
           <button class="btn btn-primary" id="playBtn">🔊 Leer en voz alta</button>
           <button class="btn btn-stop" id="stopBtn" disabled>⏹ Detener</button>
+          <div class="editor-options-wrapper" id="editorOptionsWrapper">
+            <button class="btn btn-more-options" id="editorOptionsBtn" type="button" aria-label="Más opciones" title="Opciones del editor">⋮</button>
+            <div class="editor-options-menu" id="editorOptionsMenu">
+              <div class="options-menu-header">Opciones del editor</div>
+              <div class="options-menu-item" id="autoSaveOptionRow">
+                <div class="options-menu-item-text">
+                  <div class="options-menu-title">Guardado automático</div>
+                  <div class="options-menu-desc" id="autoSaveStatusLabel">Activado (guarda al escribir)</div>
+                </div>
+                <label class="toggle-switch" for="autoSaveCheckbox" title="Activar o desactivar guardado automático">
+                  <input type="checkbox" id="autoSaveCheckbox" checked>
+                  <span class="toggle-track"></span>
+                </label>
+              </div>
+            </div>
+          </div>
           <div class="waveform" id="waveform">
             <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
           </div>
