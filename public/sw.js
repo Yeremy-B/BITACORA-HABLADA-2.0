@@ -1,19 +1,18 @@
-// Bitácora Hablada Service Worker v2.0.0
-const CACHE_NAME = 'bitacora-hablada-v2.0.0';
+// Bitácora Hablada Service Worker v2.0.1
+const CACHE_NAME = 'bitacora-hablada-v2.0.1';
 
-// Instalación: cachear los archivos estáticos usando el scope base
+// Instalación: cachear los archivos fundamentales del shell
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(async (cache) => {
       const base = self.registration.scope;
+      // Precachear solo los archivos shell inmutables que existen tanto en dev como en build
       const assets = [
         base,
         new URL('index.html', base).href,
         new URL('manifest.json', base).href,
         new URL('icon-192.png', base).href,
-        new URL('icon-512.png', base).href,
-        new URL('src/style.css', base).href,
-        new URL('src/main.js', base).href
+        new URL('icon-512.png', base).href
       ];
 
       await Promise.allSettled(
@@ -41,7 +40,7 @@ self.addEventListener('activate', (event) => {
 
 // Estrategia de Fetch:
 // 1. Para HTML y navegación: Network-first con fallback a caché
-// 2. Para recursos (CSS, JS, iconos, fuentes): Stale-While-Revalidate
+// 2. Para recursos generados (JS/CSS en assets/ o src/, iconos, fuentes): Cache-First con actualización de fondo (Stale-While-Revalidate)
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
@@ -71,7 +70,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Stale-While-Revalidate para el resto de assets
+  // Stale-While-Revalidate para todos los demás recursos (assets Vite, CSS, JS, imágenes, fuentes)
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request)
@@ -83,7 +82,7 @@ self.addEventListener('fetch', (event) => {
           return networkResponse;
         })
         .catch(() => {
-          // Si falla red y no hay caché, no lanza error fatal
+          // Si no hay red y no está en caché, simplemente se silencia
         });
 
       return cachedResponse || fetchPromise;

@@ -915,6 +915,10 @@
 
   // ---------- FOLDER ACTIONS ----------
   async function selectFolder(id){
+    if(autoSaveTimeout){
+      clearTimeout(autoSaveTimeout);
+      await autoSaveDraft();
+    }
     state.activeFolderId = id;
     state.currentNoteId = null;
     state.tagFilter = null;
@@ -1348,7 +1352,7 @@
 
   // ---------- DICTATION (speech to text) ----------
   let recognition = null;
-  let isManualDictationActive = false;
+  let textBeforeDictation = '';
   const SR = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
 
   function setupDictation(){
@@ -1367,35 +1371,37 @@
       recognition.continuous = true;
       recognition.interimResults = true;
 
-      let finalText = '';
-
       recognition.onstart = () => {
         state.recognizing = true;
-        finalText = el.editor.value ? el.editor.value + ' ' : '';
+        const currentVal = el.editor.value.trim();
+        textBeforeDictation = currentVal ? currentVal + ' ' : '';
         if(el.dictateBtn){
           el.dictateBtn.classList.add('on');
           el.dictateBtn.textContent = '🎙️ Escuchando…';
         }
-        setStatus('Habla ahora, se escribirá lo que digas…');
+        setStatus('Escuchando… habla con naturalidad');
       };
 
       recognition.onresult = (event) => {
-        let interim = '';
-        for(let i = event.resultIndex; i < event.results.length; i++){
+        let finalSessionTranscript = '';
+        let interimSessionTranscript = '';
+
+        for(let i = 0; i < event.results.length; i++){
           const transcript = event.results[i][0].transcript;
           if(event.results[i].isFinal){
-            finalText += transcript + ' ';
+            finalSessionTranscript += transcript + ' ';
           } else {
-            interim += transcript;
+            interimSessionTranscript += transcript;
           }
         }
-        el.editor.value = finalText + interim;
+
+        const combined = (textBeforeDictation + finalSessionTranscript + interimSessionTranscript).replace(/\s+/g, ' ');
+        el.editor.value = combined;
         triggerAutoSave();
       };
 
       recognition.onerror = (e) => {
         if(e.error === 'no-speech'){
-          // Silencio temporal, no detener si el usuario sigue dictando
           return;
         }
         setStatus('No se pudo escuchar el micrófono. Revisa los permisos.', true);
@@ -1403,16 +1409,8 @@
       };
 
       recognition.onend = () => {
-        // Si el usuario no pulsó "Detener", reiniciar automáticamente para dictado continuo
-        if(isManualDictationActive){
-          try {
-            recognition.start();
-          } catch(e){
-            stopDictation();
-          }
-        } else {
-          stopDictation();
-        }
+        // Finalización natural del reconocimiento
+        stopDictation();
       };
     } catch(err) {
       console.warn('SpeechRecognition initialization error:', err);
@@ -1421,8 +1419,8 @@
   }
 
   function stopDictation(){
-    isManualDictationActive = false;
     state.recognizing = false;
+    textBeforeDictation = '';
     if(el.dictateBtn && SR){
       el.dictateBtn.classList.remove('on');
       el.dictateBtn.textContent = '🎙️ Dictar';
@@ -1441,15 +1439,14 @@
       setStatus('No se pudo iniciar el servicio de dictado.', true);
       return;
     }
-    if(state.recognizing || isManualDictationActive){
-      isManualDictationActive = false;
+    if(state.recognizing){
       try { recognition.stop(); } catch(e){}
       stopDictation();
+      setStatus('Dictado detenido.');
     } else {
-      isManualDictationActive = true;
-      try { recognition.start(); }
-      catch(e){
-        isManualDictationActive = false;
+      try {
+        recognition.start();
+      } catch(e){
         setStatus('No se pudo iniciar el micrófono.', true);
       }
     }
