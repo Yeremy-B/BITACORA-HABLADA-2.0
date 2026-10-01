@@ -9,8 +9,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Bitácora">
 <link rel="manifest" href="./manifest.json">
-<link rel="icon" type="image/png" href="./icon-192.png">
-<link rel="apple-touch-icon" href="./icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png">
+<link rel="apple-touch-icon" sizes="192x192" href="./icon-192.png">
+<link rel="apple-touch-icon" sizes="512x512" href="./icon-512.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./src/style.css">
@@ -81,9 +83,11 @@
       <h2 id="folderTitle">General</h2>
     </div>
     <div class="topbar-right-controls">
-      <button class="theme-toggle-btn" id="themeToggleBtn" type="button" aria-label="Alternar modo claro u oscuro" title="Cambiar a modo oscuro">
+      <div class="waveform" id="waveform" title="Ondas de voz / lectura">
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <button class="theme-toggle-btn" id="themeToggleBtn" type="button" aria-label="Cambiar a modo oscuro" title="Cambiar a modo oscuro">
         <span class="theme-icon" id="themeIcon">🌙</span>
-        <span class="theme-text" id="themeText">Modo oscuro</span>
       </button>
     </div>
   </div>
@@ -106,31 +110,61 @@
         <div class="toolbar-group">
           <button class="btn btn-primary" id="playBtn">🔊 Leer en voz alta</button>
           <button class="btn btn-stop" id="stopBtn" disabled>⏹ Detener</button>
-          <div class="editor-options-wrapper" id="editorOptionsWrapper">
-            <button class="btn btn-more-options" id="editorOptionsBtn" type="button" aria-label="Más opciones" title="Opciones del editor">⋮</button>
-            <div class="editor-options-menu" id="editorOptionsMenu">
-              <div class="options-menu-header">Opciones del editor</div>
-              <div class="options-menu-item" id="autoSaveOptionRow">
-                <div class="options-menu-item-text">
-                  <div class="options-menu-title">Guardado automático</div>
-                  <div class="options-menu-desc" id="autoSaveStatusLabel">Activado (guarda al escribir)</div>
-                </div>
-                <label class="toggle-switch" for="autoSaveCheckbox" title="Activar o desactivar guardado automático">
-                  <input type="checkbox" id="autoSaveCheckbox" checked>
-                  <span class="toggle-track"></span>
-                </label>
-              </div>
-            </div>
-          </div>
-          <div class="waveform" id="waveform">
-            <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-          </div>
+          <label class="autosave-quick-switch" id="autoSaveQuickSwitch" for="autoSaveCheckbox" title="Guardado automático activado. Clic para cambiar.">
+            <input type="checkbox" id="autoSaveCheckbox" checked>
+            <span class="autosave-quick-track"></span>
+            <span class="autosave-quick-label" id="autoSaveStatusLabel">Auto-guardar</span>
+          </label>
         </div>
 
         <div class="toolbar-divider"></div>
 
         <div class="toolbar-group">
           <button class="btn btn-dictate" id="dictateBtn">🎙️ Dictar</button>
+          <div class="ai-dropdown" id="aiDropdown">
+            <button class="btn btn-ai" id="aiMenuBtn" type="button" title="Asistente de productividad (requiere internet)">
+              <span class="ai-sparkle">✨</span> Asistente IA <span class="ai-status-dot online" id="aiStatusDot"></span>
+            </button>
+            <div class="ai-menu" id="aiMenu">
+              <div class="ai-menu-header">
+                <span class="ai-menu-title">Asistente Invisible</span>
+                <span class="ai-badge" id="aiConnectionBadge">En línea</span>
+              </div>
+              <div class="ai-menu-offline-notice" id="aiOfflineNotice" style="display:none;">
+                ⚠️ Se necesita conexión a internet para usar la IA. Tu bitácora sigue funcionando normalmente sin conexión.
+              </div>
+              <div class="ai-menu-items" id="aiMenuItems">
+                <button class="ai-menu-item" data-action="format_dictation" type="button">
+                  <span class="ai-icon">✍️</span>
+                  <div class="ai-item-text">
+                    <strong>Puntuar y pulir dictado</strong>
+                    <span>Agrega comas, puntos y párrafos sin alterar tus palabras</span>
+                  </div>
+                </button>
+                <button class="ai-menu-item" data-action="title_and_tags" type="button">
+                  <span class="ai-icon">🏷️</span>
+                  <div class="ai-item-text">
+                    <strong>Generar título y etiquetas</strong>
+                    <span>Sugiere título y tags basados en el contenido</span>
+                  </div>
+                </button>
+                <button class="ai-menu-item" data-action="summarize" type="button">
+                  <span class="ai-icon">📝</span>
+                  <div class="ai-item-text">
+                    <strong>Resumir ideas clave</strong>
+                    <span>Extrae los puntos más importantes de la nota</span>
+                  </div>
+                </button>
+                <button class="ai-menu-item" data-action="extract_tasks" type="button">
+                  <span class="ai-icon">✅</span>
+                  <div class="ai-item-text">
+                    <strong>Extraer tareas pendientes</strong>
+                    <span>Organiza compromisos y pendientes en una lista</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="toolbar-divider"></div>
@@ -141,8 +175,28 @@
         </div>
 
         <div class="toolbar-right">
-          <select class="voice-select" id="voiceSelect"></select>
-          <button class="btn btn-ghost" id="previewVoiceBtn" title="Probar esta voz">👂 Probar</button>
+          <div class="voice-controls-cluster">
+            <div class="voice-row-main">
+              <select class="voice-gender-filter" id="voiceGenderFilter" title="Filtrar por tipo de voz">
+                <option value="male" selected>👨 Masculina</option>
+                <option value="all">👥 Todas</option>
+                <option value="female">👩 Femenina</option>
+              </select>
+              <select class="voice-select" id="voiceSelect" title="Seleccionar voz"></select>
+              <button class="btn btn-ghost" id="previewVoiceBtn" title="Probar esta voz">👂 Probar</button>
+            </div>
+            <div class="voice-row-tune" id="voiceTuneRow">
+              <label class="voice-pitch-label" for="voicePitchSelect" title="Ajuste de timbre de voz">
+                <span>🎚️ Timbre:</span>
+                <select class="voice-pitch-select" id="voicePitchSelect">
+                  <option value="deep">Muy grave (profundo)</option>
+                  <option value="male" selected>Grave (masculino)</option>
+                  <option value="normal">Natural (estándar)</option>
+                  <option value="high">Agudo</option>
+                </select>
+              </label>
+            </div>
+          </div>
         </div>
       </div>
       <div class="tags-row">
@@ -216,6 +270,22 @@
       <button class="btn btn-primary" id="quickPreviewSpeakBtn" type="button">🔊 Leer en voz alta</button>
       <button class="btn btn-save" id="quickPreviewEditBtn" type="button">✏️ Abrir en editor</button>
       <button class="btn btn-cancel" id="quickPreviewCloseBtn" type="button">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="aiResultOverlay">
+  <div class="modal-box ai-result-box">
+    <div class="ai-result-header">
+      <h4 id="aiResultTitle">✨ Asistente IA</h4>
+      <button class="sidebar-close-btn" id="aiResultCloseX" style="display:block;" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="ai-result-body" id="aiResultBody"></div>
+    <div class="modal-actions ai-result-actions">
+      <button class="btn btn-ghost" id="aiResultCopyBtn" type="button">📋 Copiar</button>
+      <button class="btn btn-primary" id="aiResultAppendBtn" type="button">➕ Añadir al final</button>
+      <button class="btn btn-save" id="aiResultReplaceBtn" type="button">🔄 Reemplazar nota</button>
+      <button class="btn btn-cancel" id="aiResultCloseBtn" type="button">Cerrar</button>
     </div>
   </div>
 </div>

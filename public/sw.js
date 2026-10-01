@@ -1,5 +1,5 @@
-// Bitácora Hablada Service Worker v2.0.1
-const CACHE_NAME = 'bitacora-hablada-v2.0.1';
+// Bitácora Hablada Service Worker v2.2.0
+const CACHE_NAME = 'bitacora-hablada-v2.2.0';
 
 // Instalación: cachear los archivos fundamentales del shell
 self.addEventListener('install', (event) => {
@@ -46,6 +46,7 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
   if (!url.protocol.startsWith('http')) return;
+  if (url.pathname.startsWith('/api/')) return;
 
   const isNavigation = event.request.mode === 'navigate' || 
     (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html'));

@@ -13,7 +13,9 @@
     tagFilter: null,
     searchQuery: '',
     searchGlobal: false,
-    autoSave: true
+    autoSave: true,
+    voiceGenderFilter: 'male',
+    voicePitch: 'male'
   };
   const notesCache = {}; // folderId -> notas (para la vista previa al pasar el mouse)
 
@@ -31,7 +33,9 @@
     saveBtn: document.getElementById('saveBtn'),
     clearBtn: document.getElementById('clearBtn'),
     waveform: document.getElementById('waveform'),
+    voiceGenderFilter: document.getElementById('voiceGenderFilter'),
     voiceSelect: document.getElementById('voiceSelect'),
+    voicePitchSelect: document.getElementById('voicePitchSelect'),
     notesList: document.getElementById('notesList'),
     notesCount: document.getElementById('notesCount'),
     sortSelect: document.getElementById('sortSelect'),
@@ -44,11 +48,9 @@
     searchClearBtn: document.getElementById('searchClearBtn'),
     statusLine: document.getElementById('statusLine'),
     previewVoiceBtn: document.getElementById('previewVoiceBtn'),
-    editorOptionsBtn: document.getElementById('editorOptionsBtn'),
-    editorOptionsMenu: document.getElementById('editorOptionsMenu'),
     autoSaveCheckbox: document.getElementById('autoSaveCheckbox'),
     autoSaveStatusLabel: document.getElementById('autoSaveStatusLabel'),
-    autoSaveOptionRow: document.getElementById('autoSaveOptionRow'),
+    autoSaveQuickSwitch: document.getElementById('autoSaveQuickSwitch'),
     sidebar: document.getElementById('sidebar'),
     sidebarBackdrop: document.getElementById('sidebarBackdrop'),
     hamburgerBtn: document.getElementById('hamburgerBtn'),
@@ -85,7 +87,21 @@
     quickPreviewCloseBtn: document.getElementById('quickPreviewCloseBtn'),
     themeToggleBtn: document.getElementById('themeToggleBtn'),
     themeIcon: document.getElementById('themeIcon'),
-    themeText: document.getElementById('themeText')
+    aiDropdown: document.getElementById('aiDropdown'),
+    aiMenuBtn: document.getElementById('aiMenuBtn'),
+    aiStatusDot: document.getElementById('aiStatusDot'),
+    aiMenu: document.getElementById('aiMenu'),
+    aiConnectionBadge: document.getElementById('aiConnectionBadge'),
+    aiOfflineNotice: document.getElementById('aiOfflineNotice'),
+    aiMenuItems: document.getElementById('aiMenuItems'),
+    aiResultOverlay: document.getElementById('aiResultOverlay'),
+    aiResultTitle: document.getElementById('aiResultTitle'),
+    aiResultBody: document.getElementById('aiResultBody'),
+    aiResultCopyBtn: document.getElementById('aiResultCopyBtn'),
+    aiResultAppendBtn: document.getElementById('aiResultAppendBtn'),
+    aiResultReplaceBtn: document.getElementById('aiResultReplaceBtn'),
+    aiResultCloseBtn: document.getElementById('aiResultCloseBtn'),
+    aiResultCloseX: document.getElementById('aiResultCloseX')
   };
 
   // ---------- MENÚ MÓVIL (carpetas en panel deslizable) ----------
@@ -263,6 +279,23 @@
       }
     });
     setStatus._t = setTimeout(() => { el.statusLine.innerHTML = ''; }, 6000);
+  }
+
+  function showUndoAiStatus(msg, prevText, prevTags){
+    clearTimeout(setStatus._t);
+    el.statusLine.style.color = '';
+    el.statusLine.innerHTML = `${escapeHtml(msg)} <button class="undo-link" id="undoAiBtn" type="button">Deshacer</button>`;
+    const btn = document.getElementById('undoAiBtn');
+    if(btn){
+      btn.addEventListener('click', () => {
+        el.editor.value = prevText;
+        if(prevTags !== undefined) el.tagsInput.value = prevTags;
+        triggerAutoSave();
+        el.editor.focus();
+        setStatus('Cambio de IA deshecho.');
+      });
+    }
+    setStatus._t = setTimeout(() => { el.statusLine.innerHTML = ''; }, 7000);
   }
 
   function formatDate(ts){
@@ -938,7 +971,6 @@
     setStatus('Cargando…');
     state.notes = await loadNotes(id);
     renderNotes();
-    renderFolders();
     setStatus('');
   }
 
@@ -1000,8 +1032,13 @@
     }
     if(el.autoSaveStatusLabel){
       el.autoSaveStatusLabel.textContent = enabled
-        ? 'Activado (guarda al escribir)'
-        : 'Desactivado (guarda manualmente)';
+        ? 'Auto-guardar'
+        : 'Manual';
+    }
+    if(el.autoSaveQuickSwitch){
+      el.autoSaveQuickSwitch.setAttribute('title', enabled
+        ? 'Guardado automático activado (guarda al escribir). Clic para cambiar.'
+        : 'Guardado manual (usa el botón Guardar). Clic para activar guardado automático.');
     }
   }
 
@@ -1153,9 +1190,59 @@
     return lang.startsWith('es') || lang.startsWith('spa') || name.includes('spanish') || name.includes('español') || name.includes('castilian');
   }
 
+  // Detecta si una voz del sistema es masculina o femenina según palabras clave internacionales y de fabricantes
+  function detectVoiceGender(v){
+    if(!v) return 'unknown';
+    const name = (v.name || '').toLowerCase();
+    const id = (v.voiceURI || '').toLowerCase();
+    const combined = `${name} ${id}`;
+
+    // Patrones masculinos conocidos
+    const malePatterns = [
+      'male', 'hombre', 'masculin', 'guy', 'david', 'jorge', 'pablo', 'raul', 'raúl',
+      'diego', 'miguel', 'carlos', 'enrique', 'alvaro', 'álvaro', 'mateo', 'gonzalo',
+      'pedro', 'juan', 'manuel', 'luis', 'fernando', 'andres', 'andrés', 'sergio',
+      'javier', 'antonio', 'victor', 'víctor', 'alberto', 'gabriel', 'sebastian',
+      'sebastián', 'hugo', 'alejandro', 'rodrigo', 'ricardo', 'esteban', 'felipe',
+      'alex', 'george', 'daniel', 'mario', 'thomas', 'oliver', 'marcus'
+    ];
+
+    // Patrones femeninos conocidos
+    const femalePatterns = [
+      'female', 'mujer', 'femenin', 'woman', 'girl', 'monica', 'mónica', 'paulina',
+      'francisca', 'luciana', 'helena', 'elena', 'laura', 'carmen', 'conchita',
+      'penelope', 'penélope', 'lupe', 'victoria', 'sofia', 'sofía', 'maria', 'maría',
+      'valeria', 'camila', 'paloma', 'samantha', 'victoria', 'karen', 'clara', 'eva',
+      'zira', 'siri female', 'female voice'
+    ];
+
+    for(const p of malePatterns){
+      // Evitar falsos positivos como "diego" dentro de otra palabra
+      if(new RegExp(`\\b${p}\\b`, 'i').test(combined) || combined.includes(p)){
+        return 'male';
+      }
+    }
+    for(const p of femalePatterns){
+      if(new RegExp(`\\b${p}\\b`, 'i').test(combined) || combined.includes(p)){
+        return 'female';
+      }
+    }
+
+    return 'unknown';
+  }
+
   function getVoiceDisplayName(v, isDefault){
     const name = v.name || 'Voz';
     const lang = (v.lang || '').replace(/_/g, '-');
+    const gender = detectVoiceGender(v);
+
+    let genderBadge = '';
+    if(gender === 'male'){
+      genderBadge = ' 👨 [Masculina]';
+    } else if(gender === 'female'){
+      genderBadge = ' 👩 [Femenina]';
+    }
+
     let flag = '🎙️';
     if(lang.startsWith('es-ES') || lang === 'es') flag = '🇪🇸';
     else if(lang.startsWith('es-MX')) flag = '🇲🇽';
@@ -1165,52 +1252,63 @@
     else if(lang.startsWith('es-CL')) flag = '🇨🇱';
     else if(lang.startsWith('es')) flag = '🌎';
 
-    let label = `${flag} ${name}` + (lang ? ` (${lang})` : '');
+    let label = `${flag} ${name}${genderBadge}` + (lang ? ` (${lang})` : '');
     if(isDefault){
       label += ' ★ Predeterminada';
     }
     return label;
   }
 
-  async function findBestDefaultVoice(allVoices){
+  async function findBestDefaultVoice(allVoices, filterGender = 'male'){
     if(!allVoices || allVoices.length === 0) return null;
 
-    // 1. Preferencia guardada previamente por el usuario
+    // 1. Preferencia guardada previamente por el usuario si coincide con el filtro
     const savedVoice = await storageGet('preferredVoice');
     if(savedVoice){
       const found = allVoices.find(v => v.name === savedVoice);
-      if(found) return found;
+      if(found){
+        const g = detectVoiceGender(found);
+        if(filterGender === 'all' || g === filterGender || (filterGender === 'male' && g !== 'female')){
+          return found;
+        }
+      }
     }
 
-    // 2. Voz en español que coincida con el idioma del navegador/sistema
+    // 2. Si se solicitan voces masculinas, buscar preferentemente las masculinas en español
+    if(filterGender === 'male'){
+      const maleSpanishKeywords = [
+        'jorge', 'pablo', 'raul', 'diego', 'miguel', 'carlos', 'enrique',
+        'mateo', 'gonzalo', 'pedro', 'juan', 'manuel', 'male', 'hombre'
+      ];
+      for(const kw of maleSpanishKeywords){
+        const match = allVoices.find(v => isSpanishVoice(v) && v.name.toLowerCase().includes(kw));
+        if(match) return match;
+      }
+      const anyMaleSpanish = allVoices.find(v => isSpanishVoice(v) && detectVoiceGender(v) === 'male');
+      if(anyMaleSpanish) return anyMaleSpanish;
+    }
+
+    // 3. Voz en español que coincida con el idioma del navegador/sistema
     const userLang = (navigator.language || '').toLowerCase().replace(/_/g, '-');
     const matchLangVoice = allVoices.find(v => isSpanishVoice(v) && v.lang && v.lang.toLowerCase().replace(/_/g, '-') === userLang);
-    if(matchLangVoice) return matchLangVoice;
+    if(matchLangVoice && (filterGender === 'all' || detectVoiceGender(matchLangVoice) === filterGender)) return matchLangVoice;
 
-    // 3. Voz en español marcada como predeterminada del sistema
-    const defaultSpanish = allVoices.find(v => isSpanishVoice(v) && v.default);
-    if(defaultSpanish) return defaultSpanish;
-
-    // 4. Voces de alta calidad / naturales en español habituales en móviles (iOS Siri / Android Google / Windows / Mac)
+    // 4. Voces de alta calidad en español habituales en móviles y sistemas
     const preferredKeywords = [
-      'google español', 'google spanish', 'mónica', 'monica', 'paulina', 'jorge',
-      'francisca', 'diego', 'luciana', 'helena', 'raul', 'laura', 'miguel',
-      'enrique', 'carmen', 'conchita', 'penelope', 'lupe', 'siri', 'neural', 'natural'
+      'google español', 'google spanish', 'jorge', 'pablo', 'diego', 'raul',
+      'miguel', 'enrique', 'mónica', 'monica', 'paulina', 'francisca',
+      'luciana', 'helena', 'neural', 'natural'
     ];
     for(const kw of preferredKeywords){
       const match = allVoices.find(v => isSpanishVoice(v) && v.name.toLowerCase().includes(kw));
-      if(match) return match;
+      if(match && (filterGender === 'all' || detectVoiceGender(match) === filterGender || filterGender === 'male')) return match;
     }
 
-    // 5. Primera voz disponible en español
+    // 5. Primera voz en español
     const anySpanish = allVoices.find(isSpanishVoice);
     if(anySpanish) return anySpanish;
 
-    // 6. Voz predeterminada general del dispositivo
-    const systemDefault = allVoices.find(v => v.default);
-    if(systemDefault) return systemDefault;
-
-    // 7. Primera voz disponible
+    // 6. Primera voz disponible
     return allVoices[0];
   }
 
@@ -1244,7 +1342,21 @@
 
     clearTimeout(populateRetryTimer);
 
-    const bestVoice = await findBestDefaultVoice(all);
+    const genderFilter = state.voiceGenderFilter || 'male';
+    const filterFn = (v) => {
+      if(genderFilter === 'all') return true;
+      const g = detectVoiceGender(v);
+      if(genderFilter === 'male') {
+        // En modo masculina, mostrar voces reconocidas como masculinas o neutras si no hay explícitamente masculinas
+        return g === 'male' || g === 'unknown';
+      }
+      if(genderFilter === 'female') {
+        return g === 'female' || g === 'unknown';
+      }
+      return true;
+    };
+
+    const bestVoice = await findBestDefaultVoice(all, genderFilter);
     const savedVoice = await storageGet('preferredVoice');
     const targetVoiceName = (savedVoice && all.some(v => v.name === savedVoice))
       ? savedVoice
@@ -1252,12 +1364,18 @@
 
     el.voiceSelect.innerHTML = '';
 
-    const spanishList = state.voices;
-    const otherList = all.filter(v => !isSpanishVoice(v));
+    let spanishList = state.voices.filter(filterFn);
+    let otherList = all.filter(v => !isSpanishVoice(v) && filterFn(v));
+
+    // Si el filtro específico no arrojó resultados, mostrar todas para no dejar el selector vacío
+    if(spanishList.length === 0 && otherList.length === 0){
+      spanishList = state.voices;
+      otherList = all.filter(v => !isSpanishVoice(v));
+    }
 
     if(spanishList.length > 0){
       const esGroup = document.createElement('optgroup');
-      esGroup.label = 'Voces en Español (Recomendadas)';
+      esGroup.label = genderFilter === 'male' ? 'Voces Masculinas en Español' : (genderFilter === 'female' ? 'Voces Femeninas en Español' : 'Voces en Español (Recomendadas)');
       spanishList.forEach(v => {
         const opt = document.createElement('option');
         opt.value = v.name;
@@ -1273,14 +1391,18 @@
       otherList.forEach(v => {
         const opt = document.createElement('option');
         opt.value = v.name;
-        opt.textContent = `${v.name} (${v.lang || 'idioma'})` + (v.default ? ' ★' : '');
+        const g = detectVoiceGender(v);
+        const gLabel = g === 'male' ? ' [👨]' : (g === 'female' ? ' [👩]' : '');
+        opt.textContent = `${v.name}${gLabel} (${v.lang || 'idioma'})` + (v.default ? ' ★' : '');
         otherGroup.appendChild(opt);
       });
       el.voiceSelect.appendChild(otherGroup);
     }
 
-    if(targetVoiceName){
+    if(targetVoiceName && Array.from(el.voiceSelect.options).some(o => o.value === targetVoiceName)){
       el.voiceSelect.value = targetVoiceName;
+    } else if(el.voiceSelect.options.length > 0){
+      el.voiceSelect.selectedIndex = 0;
     }
 
     // Pre-establecer y persistir la voz por defecto si aún no había una configurada
@@ -1289,13 +1411,37 @@
     }
   }
 
+  let speechKeepAliveTimer = null;
+  function startSpeechKeepAlive(){
+    stopSpeechKeepAlive();
+    speechKeepAliveTimer = setInterval(() => {
+      if('speechSynthesis' in window && window.speechSynthesis.speaking && !window.speechSynthesis.paused){
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+      }
+    }, 10000);
+  }
+  function stopSpeechKeepAlive(){
+    if(speechKeepAliveTimer){
+      clearInterval(speechKeepAliveTimer);
+      speechKeepAliveTimer = null;
+    }
+  }
+
   function buildReadingWords(text){
-    // Divide el texto en palabras (con su posición de inicio) para poder resaltarlas
+    // Divide el texto en palabras respetando saltos de línea y espaciado original
     const matches = [...text.matchAll(/\S+/g)];
-    el.readingText.innerHTML = matches
-      .map(m => `<span class="rword" data-start="${m.index}">${escapeHtml(m[0])}</span>`)
-      .join(' ');
-    return matches.map(m => ({ start: m.index, end: m.index + m[0].length, el: null }));
+    let html = '';
+    let lastIndex = 0;
+    for(const m of matches){
+      const gap = text.slice(lastIndex, m.index);
+      html += escapeHtml(gap);
+      html += `<span class="rword" data-start="${m.index}">${escapeHtml(m[0])}</span>`;
+      lastIndex = m.index + m[0].length;
+    }
+    html += escapeHtml(text.slice(lastIndex));
+    el.readingText.innerHTML = html;
+    return matches.map(m => ({ start: m.index, end: m.index + m[0].length }));
   }
 
   function speak(text){
@@ -1336,7 +1482,18 @@
       utter.lang = (navigator.language && navigator.language.toLowerCase().startsWith('es')) ? navigator.language : 'es-ES';
     }
     utter.rate = 1.0;
-    utter.pitch = 1.0;
+
+    // Modulación de tono según la configuración (grave/masculino, profundo, normal o agudo)
+    const pitchMode = state.voicePitch || (el.voicePitchSelect ? el.voicePitchSelect.value : 'male');
+    if(pitchMode === 'deep'){
+      utter.pitch = 0.72; // Timbre muy grave
+    } else if(pitchMode === 'male'){
+      utter.pitch = 0.84; // Timbre masculino natural cálido
+    } else if(pitchMode === 'high'){
+      utter.pitch = 1.25; // Timbre agudo
+    } else {
+      utter.pitch = 1.0;  // Tono original de la voz
+    }
 
     const words = buildReadingWords(text);
     const spans = el.readingText.querySelectorAll('.rword');
@@ -1360,12 +1517,14 @@
 
     utter.onstart = () => {
       state.speaking = true;
+      startSpeechKeepAlive();
       el.waveform.classList.add('speaking');
       el.stopBtn.disabled = false;
       el.playBtn.disabled = true;
       el.readingOverlay.classList.add('open');
     };
     utter.onend = utter.onerror = () => {
+      stopSpeechKeepAlive();
       state.speaking = false;
       el.waveform.classList.remove('speaking');
       el.stopBtn.disabled = true;
@@ -1377,6 +1536,7 @@
   }
 
   function stopSpeaking(){
+    stopSpeechKeepAlive();
     if('speechSynthesis' in window){
       window.speechSynthesis.cancel();
     }
@@ -1387,10 +1547,25 @@
     el.readingOverlay.classList.remove('open');
   }
 
-  // ---------- DICTATION (speech to text) ----------
+  // ---------- DICTATION (speech to text con deduplicación y anti-eco) ----------
   let recognition = null;
   let textBeforeDictation = '';
+  let finalPhrases = [];
   const SR = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition || null) : null;
+
+  function cleanSpeechChunk(text){
+    return (text || '').trim().replace(/[ \t]+/g, ' ');
+  }
+
+  function isDuplicatePhrase(existingList, candidate){
+    if(!candidate) return true;
+    const candNorm = candidate.toLowerCase();
+    if(existingList.length === 0) return false;
+    const last = existingList[existingList.length - 1].toLowerCase();
+    if(last === candNorm) return true;
+    if(last.endsWith(candNorm) || candNorm.endsWith(last)) return true;
+    return false;
+  }
 
   function setupDictation(){
     if(!SR){
@@ -1407,11 +1582,16 @@
       recognition.lang = userLang.toLowerCase().startsWith('es') ? userLang : 'es-CL';
       recognition.continuous = true;
       recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
 
       recognition.onstart = () => {
         state.recognizing = true;
-        const currentVal = el.editor.value.trim();
-        textBeforeDictation = currentVal ? currentVal + ' ' : '';
+        finalPhrases = [];
+        const currentVal = el.editor.value || '';
+        textBeforeDictation = currentVal;
+        if(textBeforeDictation && !textBeforeDictation.endsWith(' ') && !textBeforeDictation.endsWith('\n')){
+          textBeforeDictation += ' ';
+        }
         if(el.dictateBtn){
           el.dictateBtn.classList.add('on');
           el.dictateBtn.textContent = '🎙️ Escuchando…';
@@ -1420,20 +1600,32 @@
       };
 
       recognition.onresult = (event) => {
-        let finalSessionTranscript = '';
-        let interimSessionTranscript = '';
+        let currentInterim = '';
 
-        for(let i = 0; i < event.results.length; i++){
-          const transcript = event.results[i][0].transcript;
-          if(event.results[i].isFinal){
-            finalSessionTranscript += transcript + ' ';
+        for(let i = event.resultIndex; i < event.results.length; ++i){
+          const res = event.results[i];
+          if(!res || !res[0]) continue;
+          const transcript = cleanSpeechChunk(res[0].transcript);
+          if(!transcript) continue;
+
+          if(res.isFinal){
+            if(!isDuplicatePhrase(finalPhrases, transcript)){
+              finalPhrases.push(transcript);
+            }
           } else {
-            interimSessionTranscript += transcript;
+            if(!isDuplicatePhrase(finalPhrases, transcript)){
+              currentInterim = transcript;
+            }
           }
         }
 
-        const combined = (textBeforeDictation + finalSessionTranscript + interimSessionTranscript).replace(/\s+/g, ' ');
-        el.editor.value = combined;
+        const finalCombined = finalPhrases.join(' ');
+        let speechPart = finalCombined;
+        if(currentInterim){
+          speechPart += (speechPart ? ' ' : '') + currentInterim;
+        }
+
+        el.editor.value = textBeforeDictation + speechPart;
         triggerAutoSave();
       };
 
@@ -1452,7 +1644,6 @@
       };
 
       recognition.onend = () => {
-        // Finalización natural del reconocimiento
         stopDictation();
       };
     } catch(err) {
@@ -1468,6 +1659,7 @@
 
   function stopDictation(){
     state.recognizing = false;
+    finalPhrases = [];
     textBeforeDictation = '';
     if(el.dictateBtn && SR){
       el.dictateBtn.classList.remove('on');
@@ -1505,6 +1697,161 @@
             setStatus('No se pudo iniciar el micrófono. Revisa los permisos.', true);
           }
         }, 150);
+      }
+    }
+  }
+
+  // ---------- ASISTENTE INVISIBLE DE PRODUCTIVIDAD (IA) ----------
+  let currentAiResult = '';
+  let currentAiAction = '';
+
+  function isAppOnline(){
+    return typeof navigator !== 'undefined' ? navigator.onLine : true;
+  }
+
+  function updateAIOnlineStatus(){
+    const online = isAppOnline();
+    if(el.aiStatusDot){
+      el.aiStatusDot.className = 'ai-status-dot ' + (online ? 'online' : 'offline');
+    }
+    if(el.aiConnectionBadge){
+      el.aiConnectionBadge.className = 'ai-badge' + (online ? '' : ' offline');
+      el.aiConnectionBadge.textContent = online ? 'En línea' : 'Sin conexión';
+    }
+    if(el.aiOfflineNotice){
+      el.aiOfflineNotice.style.display = online ? 'none' : 'block';
+    }
+    if(el.aiMenuItems){
+      el.aiMenuItems.querySelectorAll('.ai-menu-item').forEach(btn => {
+        btn.disabled = !online;
+      });
+    }
+    if(el.aiMenuBtn){
+      el.aiMenuBtn.setAttribute('title', online
+        ? 'Asistente de productividad IA (en línea)'
+        : 'Asistente de productividad IA (requiere conexión a internet)');
+    }
+  }
+
+  function toggleAiMenu(){
+    if(!el.aiMenu) return;
+    const isOpen = el.aiMenu.classList.contains('open');
+    if(isOpen){
+      closeAiMenu();
+    } else {
+      updateAIOnlineStatus();
+      el.aiMenu.classList.add('open');
+      document.addEventListener('click', handleOutsideAiClick);
+    }
+  }
+
+  function closeAiMenu(){
+    if(!el.aiMenu) return;
+    el.aiMenu.classList.remove('open');
+    document.removeEventListener('click', handleOutsideAiClick);
+  }
+
+  function handleOutsideAiClick(e){
+    if(el.aiDropdown && !el.aiDropdown.contains(e.target)){
+      closeAiMenu();
+    }
+  }
+
+  function openAiResultModal(title, bodyText, action){
+    currentAiResult = bodyText;
+    currentAiAction = action;
+    if(el.aiResultTitle) el.aiResultTitle.textContent = title;
+    if(el.aiResultBody) el.aiResultBody.textContent = bodyText;
+    if(el.aiResultOverlay) el.aiResultOverlay.classList.add('open');
+  }
+
+  function closeAiResultModal(){
+    if(el.aiResultOverlay) el.aiResultOverlay.classList.remove('open');
+  }
+
+  async function executeAiAction(action){
+    closeAiMenu();
+
+    if(!isAppOnline()){
+      setStatus('Esta función de IA requiere conexión a internet.', true);
+      return;
+    }
+
+    const text = el.editor.value.trim();
+    if(!text){
+      setStatus('Escribe o dicta algo en la nota antes de usar el asistente.', true);
+      return;
+    }
+
+    const prevEditorText = el.editor.value;
+    const prevTags = el.tagsInput.value;
+
+    const originalBtnHtml = el.aiMenuBtn ? el.aiMenuBtn.innerHTML : '';
+    if(el.aiMenuBtn){
+      el.aiMenuBtn.classList.add('loading');
+      el.aiMenuBtn.innerHTML = '✨ Pensando…';
+    }
+    setStatus('El asistente IA está procesando tu nota…');
+
+    try {
+      const response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, text: el.editor.value })
+      });
+
+      if(!response.ok){
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Error del servidor (${response.status})`);
+      }
+
+      const data = await response.json();
+
+      if(action === 'format_dictation'){
+        const result = data.result || '';
+        if(result){
+          el.editor.value = result;
+          triggerAutoSave();
+          showUndoAiStatus('Dictado puntuado y pulido ✓', prevEditorText, prevTags);
+        } else {
+          setStatus('No se generaron cambios en el texto.');
+        }
+      } else if(action === 'title_and_tags'){
+        let appliedTitle = data.title || '';
+        let appliedTags = data.tags || [];
+
+        if(appliedTags.length > 0){
+          const currentTagsList = parseTags(el.tagsInput.value);
+          const merged = Array.from(new Set([...currentTagsList, ...appliedTags])).slice(0, 8);
+          el.tagsInput.value = merged.join(', ');
+        }
+
+        if(appliedTitle){
+          const lines = el.editor.value.split('\n');
+          if(lines[0] && lines[0].startsWith('# ')){
+            lines[0] = `# ${appliedTitle}`;
+            el.editor.value = lines.join('\n');
+          } else {
+            el.editor.value = `# ${appliedTitle}\n\n` + el.editor.value.trim();
+          }
+        }
+        triggerAutoSave();
+        showUndoAiStatus(`Título y etiquetas generadas ✓`, prevEditorText, prevTags);
+      } else if(action === 'summarize'){
+        openAiResultModal('📝 Resumen de ideas clave', data.result || '', 'summarize');
+        setStatus('Resumen generado.');
+      } else if(action === 'extract_tasks'){
+        openAiResultModal('✅ Tareas pendientes detectadas', data.result || '', 'extract_tasks');
+        setStatus('Tareas extraídas.');
+      }
+    } catch(err){
+      console.error('[AI Action Error]:', err);
+      setStatus(err.message || 'No se pudo conectar con el servicio de IA.', true);
+    } finally {
+      if(el.aiMenuBtn){
+        el.aiMenuBtn.classList.remove('loading');
+        el.aiMenuBtn.innerHTML = originalBtnHtml;
+        updateAIOnlineStatus();
       }
     }
   }
@@ -1548,6 +1895,80 @@
     state.searchGlobal = el.searchGlobalCheckbox.checked;
     renderNotes();
   });
+
+  // Eventos del Asistente IA
+  if(el.aiMenuBtn){
+    el.aiMenuBtn.addEventListener('click', toggleAiMenu);
+  }
+  if(el.aiMenuItems){
+    el.aiMenuItems.querySelectorAll('.ai-menu-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const action = btn.getAttribute('data-action');
+        if(action) executeAiAction(action);
+      });
+    });
+  }
+  if(el.aiResultCloseBtn){
+    el.aiResultCloseBtn.addEventListener('click', closeAiResultModal);
+  }
+  if(el.aiResultCloseX){
+    el.aiResultCloseX.addEventListener('click', closeAiResultModal);
+  }
+  if(el.aiResultOverlay){
+    el.aiResultOverlay.addEventListener('click', (e) => {
+      if(e.target === el.aiResultOverlay) closeAiResultModal();
+    });
+  }
+  if(el.aiResultCopyBtn){
+    el.aiResultCopyBtn.addEventListener('click', async () => {
+      if(currentAiResult){
+        try {
+          if(navigator.clipboard && navigator.clipboard.writeText){
+            await navigator.clipboard.writeText(currentAiResult);
+          } else {
+            const ta = document.createElement('textarea');
+            ta.value = currentAiResult;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+          }
+          setStatus('Resultado copiado al portapapeles ✓');
+        } catch(e){
+          setStatus('No se pudo copiar automáticamente.', true);
+        }
+      }
+    });
+  }
+  if(el.aiResultAppendBtn){
+    el.aiResultAppendBtn.addEventListener('click', () => {
+      if(currentAiResult){
+        const prev = el.editor.value.trim();
+        const header = currentAiAction === 'summarize' ? '\n\n--- Resumen ---\n' : '\n\n--- Tareas ---\n';
+        el.editor.value = prev + header + currentAiResult;
+        triggerAutoSave();
+        closeAiResultModal();
+        el.editor.focus();
+        setStatus('Agregado al final de la nota ✓');
+      }
+    });
+  }
+  if(el.aiResultReplaceBtn){
+    el.aiResultReplaceBtn.addEventListener('click', () => {
+      if(currentAiResult){
+        const prevText = el.editor.value;
+        const prevTags = el.tagsInput.value;
+        el.editor.value = currentAiResult;
+        triggerAutoSave();
+        closeAiResultModal();
+        el.editor.focus();
+        showUndoAiStatus('Nota reemplazada con el contenido de la IA.', prevText, prevTags);
+      }
+    });
+  }
+
+  window.addEventListener('online', updateAIOnlineStatus);
+  window.addEventListener('offline', updateAIOnlineStatus);
 
   // Modo de visualización de notas (Previa vs Lista)
   function setViewMode(mode){
@@ -1628,6 +2049,10 @@
   }
   if(el.mobileNewNoteBtn){
     el.mobileNewNoteBtn.addEventListener('click', () => {
+      if(autoSaveTimeout){
+        clearTimeout(autoSaveTimeout);
+        autoSaveTimeout = null;
+      }
       state.currentNoteId = null;
       el.editor.value = '';
       el.tagsInput.value = '';
@@ -1640,12 +2065,33 @@
 
   el.dictateBtn.addEventListener('click', toggleDictation);
   el.previewVoiceBtn.addEventListener('click', () => {
-    speak('Hola, así suena esta voz.');
+    speak('Hola, así suena la voz masculina en esta nota.');
   });
   el.voiceSelect.addEventListener('change', () => {
     storageSet('preferredVoice', el.voiceSelect.value);
     setStatus('Voz preferida guardada.');
   });
+  if(el.voiceGenderFilter){
+    el.voiceGenderFilter.addEventListener('change', async () => {
+      state.voiceGenderFilter = el.voiceGenderFilter.value;
+      await storageSet('voiceGenderFilter', state.voiceGenderFilter);
+      // Al cambiar a masculina, ajustar el timbre automáticamente a masculino si estaba en normal
+      if(state.voiceGenderFilter === 'male' && el.voicePitchSelect && el.voicePitchSelect.value === 'normal'){
+        el.voicePitchSelect.value = 'male';
+        state.voicePitch = 'male';
+        await storageSet('voicePitch', 'male');
+      }
+      populateVoices();
+      setStatus(`Filtro de voz: ${el.voiceGenderFilter.options[el.voiceGenderFilter.selectedIndex].text}`);
+    });
+  }
+  if(el.voicePitchSelect){
+    el.voicePitchSelect.addEventListener('change', async () => {
+      state.voicePitch = el.voicePitchSelect.value;
+      await storageSet('voicePitch', state.voicePitch);
+      setStatus(`Timbre de voz configurado: ${el.voicePitchSelect.options[el.voicePitchSelect.selectedIndex].text}`);
+    });
+  }
 
   el.trashBtn.addEventListener('click', openTrash);
   el.trashCloseBtn.addEventListener('click', closeTrash);
@@ -1681,58 +2127,10 @@
     window.addEventListener('click', unlockMobileVoices, { passive: true });
   }
 
-  // ---------- MENÚ DE OPCIONES DEL EDITOR (3 PUNTOS) ----------
-  function toggleEditorOptionsMenu(e){
-    if(e) e.stopPropagation();
-    const isOpen = el.editorOptionsMenu && el.editorOptionsMenu.classList.contains('open');
-    if(isOpen){
-      closeEditorOptionsMenu();
-    } else {
-      openEditorOptionsMenu();
-    }
-  }
-
-  function openEditorOptionsMenu(){
-    if(!el.editorOptionsMenu) return;
-    el.editorOptionsMenu.classList.add('open');
-    if(el.editorOptionsBtn) el.editorOptionsBtn.classList.add('active');
-    document.addEventListener('click', onOutsideEditorMenuClick);
-    document.addEventListener('keydown', onEditorMenuKeyDown);
-  }
-
-  function closeEditorOptionsMenu(){
-    if(!el.editorOptionsMenu) return;
-    el.editorOptionsMenu.classList.remove('open');
-    if(el.editorOptionsBtn) el.editorOptionsBtn.classList.remove('active');
-    document.removeEventListener('click', onOutsideEditorMenuClick);
-    document.removeEventListener('keydown', onEditorMenuKeyDown);
-  }
-
-  function onOutsideEditorMenuClick(e){
-    if(el.editorOptionsMenu && !el.editorOptionsMenu.contains(e.target) && el.editorOptionsBtn && !el.editorOptionsBtn.contains(e.target)){
-      closeEditorOptionsMenu();
-    }
-  }
-
-  function onEditorMenuKeyDown(e){
-    if(e.key === 'Escape'){
-      closeEditorOptionsMenu();
-    }
-  }
-
-  if(el.editorOptionsBtn){
-    el.editorOptionsBtn.addEventListener('click', toggleEditorOptionsMenu);
-  }
+  // ---------- GUARDADO AUTOMÁTICO (INTERRUPTOR DIRECTO) ----------
   if(el.autoSaveCheckbox){
     el.autoSaveCheckbox.addEventListener('change', (e) => {
       setAutoSave(e.target.checked);
-    });
-  }
-  if(el.autoSaveOptionRow){
-    el.autoSaveOptionRow.addEventListener('click', (e) => {
-      if(e.target === el.autoSaveCheckbox || e.target.closest('.toggle-switch')) return;
-      const next = !el.autoSaveCheckbox.checked;
-      setAutoSave(next);
     });
   }
 
@@ -1741,7 +2139,6 @@
     if(isDark){
       document.body.classList.add('dark-mode');
       if(el.themeIcon) el.themeIcon.textContent = '☀️';
-      if(el.themeText) el.themeText.textContent = 'Modo claro';
       if(el.themeToggleBtn){
         el.themeToggleBtn.setAttribute('title', 'Cambiar a modo claro');
         el.themeToggleBtn.setAttribute('aria-label', 'Cambiar a modo claro');
@@ -1749,7 +2146,6 @@
     } else {
       document.body.classList.remove('dark-mode');
       if(el.themeIcon) el.themeIcon.textContent = '🌙';
-      if(el.themeText) el.themeText.textContent = 'Modo oscuro';
       if(el.themeToggleBtn){
         el.themeToggleBtn.setAttribute('title', 'Cambiar a modo oscuro');
         el.themeToggleBtn.setAttribute('aria-label', 'Cambiar a modo oscuro');
@@ -1775,10 +2171,39 @@
     el.themeToggleBtn.addEventListener('click', toggleTheme);
   }
 
+  // Guardado de emergencia si el usuario cierra o cambia de pestaña
+  window.addEventListener('beforeunload', () => {
+    if(autoSaveTimeout){
+      clearTimeout(autoSaveTimeout);
+      autoSaveTimeout = null;
+      autoSaveDraft();
+    }
+  });
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'hidden' && autoSaveTimeout){
+      clearTimeout(autoSaveTimeout);
+      autoSaveTimeout = null;
+      autoSaveDraft();
+    }
+  });
+
   // ---------- INIT ----------
   (async function init(){
     await initTheme();
     await initAutoSave();
+
+    // Cargar preferencias de voz (género y timbre)
+    const savedGender = await storageGet('voiceGenderFilter');
+    if(savedGender){
+      state.voiceGenderFilter = savedGender;
+      if(el.voiceGenderFilter) el.voiceGenderFilter.value = savedGender;
+    }
+    const savedPitch = await storageGet('voicePitch');
+    if(savedPitch){
+      state.voicePitch = savedPitch;
+      if(el.voicePitchSelect) el.voicePitchSelect.value = savedPitch;
+    }
+
     handleResize();
     setStatus('Cargando tu bitácora…');
     await loadFolders();
@@ -1787,9 +2212,9 @@
     el.folderTitle.textContent = active ? active.name : '';
     state.notes = await loadNotes(state.activeFolderId);
     renderNotes();
-    renderFolders();
     setupDictation();
     await loadTrash();
+    updateAIOnlineStatus();
     setStatus('');
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
