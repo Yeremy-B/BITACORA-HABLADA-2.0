@@ -32,8 +32,8 @@ app.post('/api/ai', async (req, res) => {
 const distPath = path.join(__dirname, 'dist');
 app.use(express.static(distPath));
 
-// Fallback SPA
-app.get('*', (req, res) => {
+// Fallback SPA (compatible con Express 5 y path-to-regexp)
+app.use((req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 

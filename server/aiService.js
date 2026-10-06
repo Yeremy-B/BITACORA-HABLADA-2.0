@@ -57,6 +57,14 @@ export async function processNoteWithAI(action, text) {
       prompt = `Extrae las tareas pendientes de esta nota:\n\n${text}`;
       break;
 
+    case 'suggest_title':
+      systemInstruction =
+        'Eres un asistente de organización de notas en español. ' +
+        'Analiza la nota y genera un título descriptivo, claro y atractivo (máximo 6 palabras). ' +
+        'Responde ÚNICAMENTE con el título sugerido en una sola línea, sin comillas, sin introducciones ni puntos finales.';
+      prompt = `Sugiere un título corto para esta nota:\n\n${text}`;
+      break;
+
     case 'title_and_tags':
       systemInstruction =
         'Eres un asistente de organización de notas en español. ' +
@@ -69,16 +77,66 @@ export async function processNoteWithAI(action, text) {
       throw new Error(`Acción desconocida: ${action}`);
   }
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-3.8-flash',
-    contents: prompt,
-    config: {
-      systemInstruction,
-      temperature: 0.3
-    }
-  });
+  let response = null;
+  let lastError = null;
 
-  const resultText = response.text ? response.text.trim() : '';
+  // Reintento automático con retroceso si la API devuelve 503 (alta demanda temporal)
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: prompt,
+        config: {
+          systemInstruction,
+          temperature: 0.3
+        }
+      });
+      if (response && response.text) break;
+    } catch (err) {
+      lastError = err;
+      const isTemporary = err.message && (err.message.includes('503') || err.message.includes('high demand') || err.message.includes('429'));
+      if (attempt < 3 && isTemporary) {
+        await new Promise(res => setTimeout(res, attempt * 600));
+      } else if (!isTemporary) {
+        break;
+      }
+    }
+  }
+
+  let resultText = response && response.text ? response.text.trim() : '';
+
+  // Fallback inteligente en caso de indisponibilidad temporal de la nube
+  if (!resultText) {
+    if (action === 'suggest_title') {
+      const firstLine = text.split('\n').map(l => l.replace(/^[#\-*\s]+/, '').trim()).find(l => l.length > 0) || text;
+      const words = firstLine.split(/\s+/).slice(0, 6).join(' ');
+      resultText = words.length > 40 ? words.slice(0, 40) + '…' : words;
+    } else if (action === 'format_dictation') {
+      // Puntuación básica de respaldo
+      let formatted = text.trim();
+      formatted = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+      if (!/[.!?]$/.test(formatted)) formatted += '.';
+      resultText = formatted;
+    } else if (action === 'summarize') {
+      const sentences = text.split(/[.\n]+/).map(s => s.trim()).filter(Boolean);
+      resultText = sentences.slice(0, 3).map(s => `• ${s}`).join('\n');
+    } else if (action === 'extract_tasks') {
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      const tasks = lines.filter(l => /hacer|comprar|llamar|enviar|revisar|pendiente|tarea|ir a|pagar/i.test(l));
+      resultText = tasks.length > 0
+        ? tasks.map(t => `• ${t.replace(/^[•\-\s]+/, '')}`).join('\n')
+        : '• ' + (lines[0] || 'Revisar notas pendientes');
+    }
+  }
+
+  if (action === 'suggest_title') {
+    const cleanTitle = resultText.replace(/^["'#\s]+|["'\s]+$/g, '').trim();
+    return {
+      action,
+      title: cleanTitle,
+      result: cleanTitle
+    };
+  }
 
   if (action === 'title_and_tags') {
     try {

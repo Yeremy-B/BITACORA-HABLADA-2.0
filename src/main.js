@@ -10,7 +10,6 @@
     recognizing: false,
     sortMode: 'recientes',
     viewMode: 'detailed',
-    tagFilter: null,
     searchQuery: '',
     searchGlobal: false,
     autoSave: true,
@@ -25,8 +24,8 @@
     addFolderBtn: document.getElementById('addFolderBtn'),
     folderTitle: document.getElementById('folderTitle'),
     folderEyebrow: document.getElementById('folderEyebrow'),
+    noteTitleInput: document.getElementById('noteTitleInput'),
     editor: document.getElementById('editor'),
-    tagsInput: document.getElementById('tagsInput'),
     playBtn: document.getElementById('playBtn'),
     stopBtn: document.getElementById('stopBtn'),
     dictateBtn: document.getElementById('dictateBtn'),
@@ -42,19 +41,24 @@
     viewModeToggle: document.getElementById('viewModeToggle'),
     viewModeDetailedBtn: document.getElementById('viewModeDetailedBtn'),
     viewModeCompactBtn: document.getElementById('viewModeCompactBtn'),
-    tagFilterRow: document.getElementById('tagFilterRow'),
     searchInput: document.getElementById('searchInput'),
     searchGlobalCheckbox: document.getElementById('searchGlobalCheckbox'),
     searchClearBtn: document.getElementById('searchClearBtn'),
     statusLine: document.getElementById('statusLine'),
     previewVoiceBtn: document.getElementById('previewVoiceBtn'),
     autoSaveCheckbox: document.getElementById('autoSaveCheckbox'),
-    autoSaveStatusLabel: document.getElementById('autoSaveStatusLabel'),
-    autoSaveQuickSwitch: document.getElementById('autoSaveQuickSwitch'),
     sidebar: document.getElementById('sidebar'),
     sidebarBackdrop: document.getElementById('sidebarBackdrop'),
     hamburgerBtn: document.getElementById('hamburgerBtn'),
     sidebarCloseBtn: document.getElementById('sidebarCloseBtn'),
+    quickPreviewWhatsappBtn: document.getElementById('quickPreviewWhatsappBtn'),
+    settingsWhatsappBtn: document.getElementById('settingsWhatsappBtn'),
+    settingsBtn: document.getElementById('settingsBtn'),
+    sidebarSettingsBtn: document.getElementById('sidebarSettingsBtn'),
+    quickSettingsBtn: document.getElementById('quickSettingsBtn'),
+    settingsOverlay: document.getElementById('settingsOverlay'),
+    settingsCloseBtn: document.getElementById('settingsCloseBtn'),
+    settingsCloseX: document.getElementById('settingsCloseX'),
     trashBtn: document.getElementById('trashBtn'),
     trashCount: document.getElementById('trashCount'),
     trashOverlay: document.getElementById('trashOverlay'),
@@ -80,7 +84,6 @@
     quickPreviewTitle: document.getElementById('quickPreviewTitle'),
     quickPreviewMeta: document.getElementById('quickPreviewMeta'),
     quickPreviewContent: document.getElementById('quickPreviewContent'),
-    quickPreviewTags: document.getElementById('quickPreviewTags'),
     quickPreviewCopyBtn: document.getElementById('quickPreviewCopyBtn'),
     quickPreviewSpeakBtn: document.getElementById('quickPreviewSpeakBtn'),
     quickPreviewEditBtn: document.getElementById('quickPreviewEditBtn'),
@@ -202,11 +205,12 @@
       state.folders.push(folder);
       const notes = Array.isArray(fData.notes) ? fData.notes.map(n => ({
         id: uid(),
+        title: String(n.title || '').trim(),
         text: String(n.text || ''),
         createdAt: n.createdAt || Date.now(),
         tags: Array.isArray(n.tags) ? n.tags : [],
         pinned: !!n.pinned
-      })).filter(n => n.text.trim()) : [];
+      })).filter(n => n.text.trim() || n.title.trim()) : [];
       await persistNotes(folder.id, notes);
     }
     await persistFolders();
@@ -247,19 +251,20 @@
 
   // ---------- BORRAR TODO EL EDITOR (rápido, con deshacer) ----------
   let lastClearedText = null;
-  let lastClearedTags = '';
+  let lastClearedTitle = null;
 
   function clearEditor(){
     if(autoSaveTimeout) clearTimeout(autoSaveTimeout);
     const text = el.editor.value;
-    if(!text.trim()){
+    const title = el.noteTitleInput ? el.noteTitleInput.value : '';
+    if(!text.trim() && !title.trim()){
       setStatus('El editor ya está vacío.');
       return;
     }
     lastClearedText = text;
-    lastClearedTags = el.tagsInput.value;
+    lastClearedTitle = title;
     el.editor.value = '';
-    el.tagsInput.value = '';
+    if(el.noteTitleInput) el.noteTitleInput.value = '';
     state.currentNoteId = null;
     el.editor.focus();
     showUndoStatus();
@@ -270,26 +275,28 @@
     el.statusLine.style.color = '';
     el.statusLine.innerHTML = 'Editor vaciado. <button class="undo-link" id="undoClearBtn" type="button">Deshacer</button>';
     document.getElementById('undoClearBtn').addEventListener('click', () => {
-      if(lastClearedText !== null){
-        el.editor.value = lastClearedText;
-        el.tagsInput.value = lastClearedTags;
+      if(lastClearedText !== null || lastClearedTitle !== null){
+        el.editor.value = lastClearedText || '';
+        if(el.noteTitleInput) el.noteTitleInput.value = lastClearedTitle || '';
         lastClearedText = null;
+        lastClearedTitle = null;
+        triggerAutoSave();
         el.editor.focus();
-        setStatus('Texto restaurado.');
+        setStatus('Nota restaurada ✓');
       }
     });
     setStatus._t = setTimeout(() => { el.statusLine.innerHTML = ''; }, 6000);
   }
 
-  function showUndoAiStatus(msg, prevText, prevTags){
+  function showUndoAiStatus(msg, prevText, prevTitle){
     clearTimeout(setStatus._t);
     el.statusLine.style.color = '';
     el.statusLine.innerHTML = `${escapeHtml(msg)} <button class="undo-link" id="undoAiBtn" type="button">Deshacer</button>`;
     const btn = document.getElementById('undoAiBtn');
     if(btn){
       btn.addEventListener('click', () => {
-        el.editor.value = prevText;
-        if(prevTags !== undefined) el.tagsInput.value = prevTags;
+        if(prevText !== undefined) el.editor.value = prevText;
+        if(prevTitle !== undefined && el.noteTitleInput) el.noteTitleInput.value = prevTitle;
         triggerAutoSave();
         el.editor.focus();
         setStatus('Cambio de IA deshecho.');
@@ -597,8 +604,24 @@
   }
 
   // ---------- VISTA PREVIA Y ESTRUCTURA DE NOTAS ----------
-  function getNotePreview(text){
+  function getNotePreview(text, explicitTitle){
     const raw = (text || '').trim();
+    const cleanTitle = (explicitTitle || '').trim();
+    const words = raw.split(/\s+/).filter(Boolean).length;
+    const chars = raw.length;
+    const readSeconds = Math.max(1, Math.round(words / 3.2));
+    const readTime = readSeconds < 60 ? `${readSeconds}s` : `${Math.ceil(readSeconds / 60)} min`;
+
+    if(cleanTitle){
+      return {
+        title: cleanTitle,
+        body: raw,
+        words,
+        chars,
+        readTime
+      };
+    }
+
     if(!raw){
       return {
         title: 'Nota sin contenido',
@@ -624,11 +647,6 @@
       }
     }
 
-    const words = raw.split(/\s+/).filter(Boolean).length;
-    const chars = raw.length;
-    const readSeconds = Math.max(1, Math.round(words / 3.2));
-    const readTime = readSeconds < 60 ? `${readSeconds}s` : `${Math.ceil(readSeconds / 60)} min`;
-
     return { title, body, words, chars, readTime };
   }
 
@@ -638,7 +656,7 @@
   function openQuickPreview(note, folderName){
     currentPreviewNote = note;
     currentPreviewFolder = folderName || (state.folders.find(f => f.id === state.activeFolderId)?.name || 'General');
-    const prev = getNotePreview(note.text);
+    const prev = getNotePreview(note.text, note.title);
 
     let badgesHtml = '';
     if(note.pinned){
@@ -654,14 +672,6 @@
     el.quickPreviewMeta.textContent = `📁 Carpeta: ${currentPreviewFolder} · 📅 ${formatDate(note.createdAt)}`;
     el.quickPreviewContent.textContent = note.text;
 
-    if(note.tags && note.tags.length){
-      el.quickPreviewTags.innerHTML = note.tags.map(t => `<span class="note-tag">${escapeHtml(t)}</span>`).join('');
-      el.quickPreviewTags.style.display = 'flex';
-    } else {
-      el.quickPreviewTags.innerHTML = '';
-      el.quickPreviewTags.style.display = 'none';
-    }
-
     el.quickPreviewOverlay.classList.add('open');
   }
 
@@ -674,43 +684,19 @@
   function renderNotes(){
     // ---- modo búsqueda global (en todas las carpetas) ----
     if(state.searchGlobal && state.searchQuery.trim()){
-      el.tagFilterRow.innerHTML = '';
       renderGlobalSearchResults(state.searchQuery.trim());
       return;
     }
 
-    // ---- fila de etiquetas disponibles en esta carpeta ----
-    const allTags = Array.from(new Set(
-      state.notes.flatMap(n => n.tags || [])
-    )).sort((a,b) => a.localeCompare(b, 'es'));
-
-    if(allTags.length === 0){
-      el.tagFilterRow.innerHTML = '';
-      state.tagFilter = null;
-    } else {
-      el.tagFilterRow.innerHTML =
-        `<span class="tag-chip${state.tagFilter === null ? ' active' : ''}" data-tag="">Todas</span>` +
-        allTags.map(t => `<span class="tag-chip${state.tagFilter === t ? ' active' : ''}" data-tag="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join('');
-      el.tagFilterRow.querySelectorAll('.tag-chip').forEach(chip => {
-        chip.addEventListener('click', () => {
-          const tag = chip.getAttribute('data-tag');
-          state.tagFilter = tag ? tag : null;
-          renderNotes();
-        });
-      });
-    }
-
     // ---- filtrar ----
     let list = state.notes;
-    if(state.tagFilter){
-      list = list.filter(n => (n.tags || []).includes(state.tagFilter));
-    }
     const q = state.searchQuery.trim().toLowerCase();
     if(q){
-      list = list.filter(n =>
-        n.text.toLowerCase().includes(q) ||
-        (n.tags || []).some(t => t.toLowerCase().includes(q))
-      );
+      list = list.filter(n => {
+        const t = (n.text || '').toLowerCase();
+        const tit = (n.title || '').toLowerCase();
+        return t.includes(q) || tit.includes(q);
+      });
     }
 
     el.notesCount.textContent = list.length + (list.length === 1 ? ' nota' : ' notas');
@@ -722,7 +708,7 @@
       el.notesList.innerHTML = `
         <div class="empty-state">
           <div class="glyph">${q ? '🔍' : '🗒️'}</div>
-          <p>${q ? 'Sin resultados para tu búsqueda.' : (state.tagFilter ? 'No hay notas con esa etiqueta.' : 'Aún no hay notas en esta carpeta.<br>Escribe algo y pulsa «Guardar nota».')}</p>
+          <p>${q ? 'Sin resultados para tu búsqueda.' : 'Aún no hay notas en esta carpeta.<br>Escribe algo y pulsa «Guardar nota».'}</p>
         </div>`;
       return;
     }
@@ -731,7 +717,11 @@
     const sortFn = {
       recientes: (a,b) => b.createdAt - a.createdAt,
       antiguas: (a,b) => a.createdAt - b.createdAt,
-      alfabetico: (a,b) => a.text.trim().toLowerCase().localeCompare(b.text.trim().toLowerCase(), 'es')
+      alfabetico: (a,b) => {
+        const titleA = (a.title || a.text || '').trim().toLowerCase();
+        const titleB = (b.title || b.text || '').trim().toLowerCase();
+        return titleA.localeCompare(titleB, 'es');
+      }
     }[state.sortMode] || ((a,b) => b.createdAt - a.createdAt);
 
     const pinned = list.filter(n => n.pinned).sort(sortFn);
@@ -750,10 +740,7 @@
         (isCompact ? ' compact-view' : '');
       card.setAttribute('data-note-id', n.id);
 
-      const prev = getNotePreview(n.text);
-      const tagsHtml = (n.tags && n.tags.length)
-        ? `<div class="note-tags">${n.tags.map(t => `<span class="note-tag">${escapeHtml(t)}</span>`).join('')}</div>`
-        : '';
+      const prev = getNotePreview(n.text, n.title);
 
       card.innerHTML = `
         <div class="note-card-top">
@@ -766,6 +753,7 @@
           <div class="note-actions">
             <button class="icon-btn" title="Vista previa completa" data-act="preview">👁️</button>
             <button class="icon-btn pin-btn${n.pinned ? ' active' : ''}" title="${n.pinned ? 'Quitar fijado' : 'Fijar arriba'}" data-act="pin">${n.pinned ? '📌' : '📍'}</button>
+            <button class="icon-btn" title="Compartir en WhatsApp" data-act="whatsapp">💬</button>
             <button class="icon-btn" title="Leer en voz alta" data-act="play">🔊</button>
             <button class="icon-btn" title="Mover a otra carpeta" data-act="move">📂</button>
             <button class="icon-btn danger" title="Eliminar" data-act="del">🗑️</button>
@@ -775,16 +763,17 @@
           <h4 class="note-preview-title">${escapeHtml(prev.title)}</h4>
           ${prev.body ? `<div class="note-preview-body">${escapeHtml(prev.body)}</div>` : ''}
         </div>
-        ${tagsHtml ? `<div class="note-preview-footer">${tagsHtml}</div>` : ''}
       `;
 
       card.addEventListener('click', (e) => {
-        const act = e.target.getAttribute('data-act');
+        const actBtn = e.target.closest('[data-act]');
+        const act = actBtn ? actBtn.getAttribute('data-act') : null;
         if(act === 'preview'){ e.stopPropagation(); openQuickPreview(n); return; }
+        if(act === 'whatsapp'){ e.stopPropagation(); shareToWhatsApp(n.text, n.title); return; }
         if(act === 'play'){ e.stopPropagation(); speak(n.text); return; }
         if(act === 'del'){ e.stopPropagation(); deleteNote(n.id); return; }
         if(act === 'pin'){ e.stopPropagation(); toggleImportant(n.id); return; }
-        if(act === 'move'){ e.stopPropagation(); openMoveMenu(e.target, n.id, state.activeFolderId); return; }
+        if(act === 'move'){ e.stopPropagation(); openMoveMenu(actBtn || e.target, n.id, state.activeFolderId); return; }
         loadNoteIntoEditor(n);
       });
       el.notesList.appendChild(card);
@@ -804,7 +793,7 @@
       let notes = notesCache[folder.id];
       if(!notes){ notes = await loadNotes(folder.id); }
       notes.forEach(n => {
-        if(n.text.toLowerCase().includes(q) || (n.tags || []).some(t => t.toLowerCase().includes(q))){
+        if(n.text.toLowerCase().includes(q)){
           results.push({ note: n, folder });
         }
       });
@@ -833,10 +822,7 @@
         (isCompact ? ' compact-view' : '');
       card.setAttribute('data-note-id', n.id);
 
-      const prev = getNotePreview(n.text);
-      const tagsHtml = (n.tags && n.tags.length)
-        ? `<div class="note-tags">${n.tags.map(t => `<span class="note-tag">${escapeHtml(t)}</span>`).join('')}</div>`
-        : '';
+      const prev = getNotePreview(n.text, n.title);
 
       card.innerHTML = `
         <div class="note-card-top">
@@ -849,6 +835,7 @@
           </div>
           <div class="note-actions">
             <button class="icon-btn" title="Vista previa completa" data-act="preview">👁️</button>
+            <button class="icon-btn" title="Compartir en WhatsApp" data-act="whatsapp">💬</button>
             <button class="icon-btn" title="Leer en voz alta" data-act="play">🔊</button>
           </div>
         </div>
@@ -856,12 +843,13 @@
           <h4 class="note-preview-title">${escapeHtml(prev.title)}</h4>
           ${prev.body ? `<div class="note-preview-body">${escapeHtml(prev.body)}</div>` : ''}
         </div>
-        ${tagsHtml ? `<div class="note-preview-footer">${tagsHtml}</div>` : ''}
       `;
 
       card.addEventListener('click', async (e) => {
-        const act = e.target.getAttribute('data-act');
+        const actBtn = e.target.closest('[data-act]');
+        const act = actBtn ? actBtn.getAttribute('data-act') : null;
         if(act === 'preview'){ e.stopPropagation(); openQuickPreview(n, folder.name); return; }
+        if(act === 'whatsapp'){ e.stopPropagation(); shareToWhatsApp(n.text, n.title); return; }
         if(act === 'play'){ e.stopPropagation(); speak(n.text); return; }
         state.searchQuery = '';
         state.searchGlobal = false;
@@ -960,9 +948,7 @@
     }
     state.activeFolderId = id;
     state.currentNoteId = null;
-    state.tagFilter = null;
     el.editor.value = '';
-    el.tagsInput.value = '';
     hideFolderPreview();
     closeSidebar();
     const f = state.folders.find(x => x.id === id);
@@ -976,7 +962,11 @@
 
   async function addFolder(){
     const name = el.newFolderInput.value.trim();
-    if(!name){ return; }
+    if(!name){
+      setStatus('Escribe un nombre para la nueva carpeta.', true);
+      el.newFolderInput.focus();
+      return;
+    }
     const color = colorForNewFolder(name, state.folders);
     const folder = { id: uid(), name, createdAt: Date.now(), color };
     state.folders.push(folder);
@@ -1013,15 +1003,6 @@
     setStatus('Carpeta eliminada. Sus notas quedaron en la papelera.');
   }
 
-  // ---------- ETIQUETAS ----------
-  function parseTags(raw){
-    return Array.from(new Set(
-      raw.split(',')
-        .map(t => t.trim().toLowerCase())
-        .filter(Boolean)
-    )).slice(0, 8);
-  }
-
   // ---------- NOTE ACTIONS & AUTOSAVE ----------
   let autoSaveTimeout = null;
 
@@ -1029,16 +1010,6 @@
     state.autoSave = enabled;
     if(el.autoSaveCheckbox){
       el.autoSaveCheckbox.checked = enabled;
-    }
-    if(el.autoSaveStatusLabel){
-      el.autoSaveStatusLabel.textContent = enabled
-        ? 'Auto-guardar'
-        : 'Manual';
-    }
-    if(el.autoSaveQuickSwitch){
-      el.autoSaveQuickSwitch.setAttribute('title', enabled
-        ? 'Guardado automático activado (guarda al escribir). Clic para cambiar.'
-        : 'Guardado manual (usa el botón Guardar). Clic para activar guardado automático.');
     }
   }
 
@@ -1070,23 +1041,22 @@
 
   async function autoSaveDraft(){
     const text = el.editor.value.trim();
-    if(!text) return;
-    const tags = parseTags(el.tagsInput.value);
+    const title = el.noteTitleInput ? el.noteTitleInput.value.trim() : '';
+    if(!text && !title) return;
 
     if(state.currentNoteId){
       const idx = state.notes.findIndex(n => n.id === state.currentNoteId);
       if(idx !== -1){
         const current = state.notes[idx];
-        const tagsChanged = JSON.stringify(current.tags || []) !== JSON.stringify(tags);
-        if(current.text === text && !tagsChanged){
+        if(current.text === text && (current.title || '') === title){
           return;
         }
+        current.title = title;
         current.text = text;
-        current.tags = tags;
         current.updatedAt = Date.now();
       }
     } else {
-      const note = { id: uid(), text, createdAt: Date.now(), tags, pinned: false };
+      const note = { id: uid(), title, text, createdAt: Date.now(), pinned: false };
       state.notes.unshift(note);
       state.currentNoteId = note.id;
     }
@@ -1099,18 +1069,22 @@
   async function saveNote(){
     if(autoSaveTimeout) clearTimeout(autoSaveTimeout);
     const text = el.editor.value.trim();
-    if(!text){ setStatus('Escribe algo antes de guardar.', true); return; }
-    const tags = parseTags(el.tagsInput.value);
+    const title = el.noteTitleInput ? el.noteTitleInput.value.trim() : '';
+    if(!text && !title){
+      setStatus('Escribe un título o contenido antes de guardar.', true);
+      if(el.editor) el.editor.focus();
+      return;
+    }
 
     if(state.currentNoteId){
       const idx = state.notes.findIndex(n => n.id === state.currentNoteId);
       if(idx !== -1){
+        state.notes[idx].title = title;
         state.notes[idx].text = text;
-        state.notes[idx].tags = tags;
         state.notes[idx].updatedAt = Date.now();
       }
     } else {
-      const note = { id: uid(), text, createdAt: Date.now(), tags, pinned: false };
+      const note = { id: uid(), title, text, createdAt: Date.now(), pinned: false };
       state.notes.unshift(note);
       state.currentNoteId = note.id;
     }
@@ -1122,8 +1096,10 @@
 
   function loadNoteIntoEditor(note){
     state.currentNoteId = note.id;
-    el.editor.value = note.text;
-    el.tagsInput.value = (note.tags || []).join(', ');
+    if(el.noteTitleInput){
+      el.noteTitleInput.value = note.title || '';
+    }
+    el.editor.value = note.text || '';
     if(window.innerWidth <= 860){
       setMobileTab('editor');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1175,7 +1151,6 @@
     if(state.currentNoteId === id){
       state.currentNoteId = null;
       el.editor.value = '';
-      el.tagsInput.value = '';
     }
     renderNotes();
     renderFolders();
@@ -1358,9 +1333,10 @@
 
     const bestVoice = await findBestDefaultVoice(all, genderFilter);
     const savedVoice = await storageGet('preferredVoice');
-    const targetVoiceName = (savedVoice && all.some(v => v.name === savedVoice))
-      ? savedVoice
-      : (bestVoice ? bestVoice.name : (all[0] ? all[0].name : ''));
+    const savedVoiceObj = savedVoice ? all.find(v => v.name === savedVoice) : null;
+    const savedMatchesGender = savedVoiceObj && filterFn(savedVoiceObj);
+    const targetVoiceName = (savedMatchesGender ? savedVoice : null)
+      || (bestVoice ? bestVoice.name : (all[0] ? all[0].name : ''));
 
     el.voiceSelect.innerHTML = '';
 
@@ -1444,13 +1420,17 @@
     return matches.map(m => ({ start: m.index, end: m.index + m[0].length }));
   }
 
-  function speak(text){
+  function speak(text, isPreview = false){
     if(!('speechSynthesis' in window)){
       setStatus('Este navegador no admite lectura por voz.', true);
       return;
     }
     text = (text || el.editor.value).trim();
-    if(!text){ setStatus('No hay texto para leer.', true); return; }
+    if(!text){
+      setStatus('Escribe o dicta algo en el editor antes de escuchar.', true);
+      if(el.editor) el.editor.focus();
+      return;
+    }
 
     // En móviles y tablets, asegurar que el canal de síntesis esté activo
     try {
@@ -1495,42 +1475,60 @@
       utter.pitch = 1.0;  // Tono original de la voz
     }
 
-    const words = buildReadingWords(text);
-    const spans = el.readingText.querySelectorAll('.rword');
+    let words = [];
+    let spans = [];
     let activeSpan = null;
 
-    utter.onboundary = (event) => {
-      if(event.name && event.name !== 'word') return;
-      // Encuentra la palabra cuyo rango contiene el charIndex reportado
-      let idx = words.findIndex(w => event.charIndex >= w.start && event.charIndex < w.end);
-      if(idx === -1){
-        idx = words.findIndex(w => w.start >= event.charIndex);
-      }
-      if(idx === -1) return;
-      if(activeSpan) activeSpan.classList.remove('active');
-      activeSpan = spans[idx];
-      if(activeSpan){
-        activeSpan.classList.add('active');
-        activeSpan.scrollIntoView({ block:'center', behavior:'smooth' });
-      }
-    };
+    if(!isPreview){
+      words = buildReadingWords(text);
+      spans = el.readingText.querySelectorAll('.rword');
+
+      utter.onboundary = (event) => {
+        if(event.name && event.name !== 'word') return;
+        let idx = words.findIndex(w => event.charIndex >= w.start && event.charIndex < w.end);
+        if(idx === -1){
+          idx = words.findIndex(w => w.start >= event.charIndex);
+        }
+        if(idx === -1) return;
+        if(activeSpan) activeSpan.classList.remove('active');
+        activeSpan = spans[idx];
+        if(activeSpan){
+          activeSpan.classList.add('active');
+          activeSpan.scrollIntoView({ block:'center', behavior:'smooth' });
+        }
+      };
+    }
 
     utter.onstart = () => {
       state.speaking = true;
       startSpeechKeepAlive();
       el.waveform.classList.add('speaking');
-      el.stopBtn.disabled = false;
-      el.playBtn.disabled = true;
-      el.readingOverlay.classList.add('open');
+      if(isPreview){
+        if(el.previewVoiceBtn){
+          el.previewVoiceBtn.textContent = '🔊 Probando…';
+          el.previewVoiceBtn.disabled = true;
+        }
+      } else {
+        el.stopBtn.disabled = false;
+        el.playBtn.disabled = true;
+        el.readingOverlay.classList.add('open');
+      }
     };
     utter.onend = utter.onerror = () => {
       stopSpeechKeepAlive();
       state.speaking = false;
       el.waveform.classList.remove('speaking');
-      el.stopBtn.disabled = true;
-      el.playBtn.disabled = false;
-      el.readingOverlay.classList.remove('open');
-      if(activeSpan) activeSpan.classList.remove('active');
+      if(isPreview){
+        if(el.previewVoiceBtn){
+          el.previewVoiceBtn.textContent = '👂 Probar';
+          el.previewVoiceBtn.disabled = false;
+        }
+      } else {
+        el.stopBtn.disabled = true;
+        el.playBtn.disabled = false;
+        el.readingOverlay.classList.remove('open');
+        if(activeSpan) activeSpan.classList.remove('active');
+      }
     };
     window.speechSynthesis.speak(utter);
   }
@@ -1547,24 +1545,118 @@
     el.readingOverlay.classList.remove('open');
   }
 
-  // ---------- DICTATION (speech to text con deduplicación y anti-eco) ----------
+  // ---------- DICTATION (speech to text con deduplicación móvil y anti-repetición) ----------
   let recognition = null;
   let textBeforeDictation = '';
-  let finalPhrases = [];
   const SR = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition || null) : null;
 
   function cleanSpeechChunk(text){
     return (text || '').trim().replace(/[ \t]+/g, ' ');
   }
 
-  function isDuplicatePhrase(existingList, candidate){
-    if(!candidate) return true;
-    const candNorm = candidate.toLowerCase();
-    if(existingList.length === 0) return false;
-    const last = existingList[existingList.length - 1].toLowerCase();
-    if(last === candNorm) return true;
-    if(last.endsWith(candNorm) || candNorm.endsWith(last)) return true;
-    return false;
+  // Elimina palabras adyacentes repetidas por tartamudeo o duplicación del sintetizador móvil
+  // Conserva duplicaciones válidas naturales en español (ej. "muy muy", "sí sí", "ya ya")
+  function deduplicateAdjacentWords(str){
+    if(!str) return '';
+    const words = str.split(/\s+/);
+    if(words.length <= 1) return str;
+
+    const allowedDoubles = new Set(['muy', 'si', 'sí', 'ya', 'no', 'casi', 'tan', 'bien']);
+    const cleaned = [];
+
+    for(let i = 0; i < words.length; i++){
+      const curr = words[i];
+      if(!curr) continue;
+      const prev = cleaned.length > 0 ? cleaned[cleaned.length - 1] : null;
+
+      if(prev){
+        const currNorm = curr.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+        const prevNorm = prev.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+
+        if(currNorm && currNorm === prevNorm){
+          // Si es una 3ra repetición consecutiva idéntica (ej. "palabra palabra palabra"), siempre omitir
+          const prevPrev = cleaned.length > 1 ? cleaned[cleaned.length - 2] : null;
+          const prevPrevNorm = prevPrev ? prevPrev.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '') : null;
+          if(prevPrevNorm === currNorm){
+            continue;
+          }
+
+          // Si es una 2da repetición consecutiva y no pertenece al conjunto permitido, omitir
+          if(!allowedDoubles.has(currNorm)){
+            continue;
+          }
+        }
+      }
+
+      cleaned.push(curr);
+    }
+
+    return cleaned.join(' ');
+  }
+
+  // Ensambla los fragmentos reconocidos resolviendo el bug móvil de Android/WebKit
+  // donde los resultados se emiten acumulativos, con prefijos repetidos o con event.resultIndex = 0
+  function stitchSpeechTranscripts(chunks){
+    const result = [];
+
+    for(let chunk of chunks){
+      const clean = cleanSpeechChunk(chunk);
+      if(!clean) continue;
+
+      if(result.length === 0){
+        result.push(clean);
+        continue;
+      }
+
+      const prevIndex = result.length - 1;
+      const prev = result[prevIndex];
+      const prevLower = prev.toLowerCase();
+      const cleanLower = clean.toLowerCase();
+
+      // 1. Fragmento idéntico al anterior emitido dos veces
+      if(prevLower === cleanLower){
+        continue;
+      }
+
+      // 2. El fragmento anterior ya incluye este texto al final
+      if(prevLower.endsWith(cleanLower)){
+        continue;
+      }
+
+      // 3. Este fragmento engloba y extiende al anterior (bug acumulativo de Android Chrome)
+      // Ej: prev era "hola", y el nuevo chunk es "hola cómo estás"
+      if(cleanLower.startsWith(prevLower)){
+        result[prevIndex] = clean;
+        continue;
+      }
+
+      // 4. Traslape de palabras en el límite entre fragmentos
+      // Ej: prev termina con "vamos a" y clean empieza con "a la reunión"
+      const prevWords = prev.split(/\s+/);
+      const cleanWords = clean.split(/\s+/);
+      let overlapCount = 0;
+      const maxOverlap = Math.min(prevWords.length, cleanWords.length, 6);
+
+      for(let k = maxOverlap; k >= 1; k--){
+        const prevEnd = prevWords.slice(prevWords.length - k).map(w => w.toLowerCase()).join(' ');
+        const cleanStart = cleanWords.slice(0, k).map(w => w.toLowerCase()).join(' ');
+        if(prevEnd === cleanStart){
+          overlapCount = k;
+          break;
+        }
+      }
+
+      if(overlapCount > 0){
+        const nonOverlapping = cleanWords.slice(overlapCount).join(' ');
+        if(nonOverlapping){
+          result[prevIndex] = prev + ' ' + nonOverlapping;
+        }
+      } else {
+        result.push(clean);
+      }
+    }
+
+    return deduplicateAdjacentWords(result.join(' '));
   }
 
   function setupDictation(){
@@ -1586,7 +1678,6 @@
 
       recognition.onstart = () => {
         state.recognizing = true;
-        finalPhrases = [];
         const currentVal = el.editor.value || '';
         textBeforeDictation = currentVal;
         if(textBeforeDictation && !textBeforeDictation.endsWith(' ') && !textBeforeDictation.endsWith('\n')){
@@ -1600,32 +1691,64 @@
       };
 
       recognition.onresult = (event) => {
-        let currentInterim = '';
+        if(!event || !event.results) return;
 
-        for(let i = event.resultIndex; i < event.results.length; ++i){
+        // En Android/móvil, event.resultIndex a menudo se reinicia en 0 en cada evento.
+        // En lugar de acumular en un arreglo externo sin sincronía, leemos directamente
+        // event.results de esta sesión y lo ensamblamos con desduplicación inteligente.
+        const finalChunks = [];
+        let rawInterim = '';
+
+        for(let i = 0; i < event.results.length; ++i){
           const res = event.results[i];
           if(!res || !res[0]) continue;
           const transcript = cleanSpeechChunk(res[0].transcript);
           if(!transcript) continue;
 
           if(res.isFinal){
-            if(!isDuplicatePhrase(finalPhrases, transcript)){
-              finalPhrases.push(transcript);
-            }
+            finalChunks.push(transcript);
           } else {
-            if(!isDuplicatePhrase(finalPhrases, transcript)){
-              currentInterim = transcript;
+            rawInterim += (rawInterim ? ' ' : '') + transcript;
+          }
+        }
+
+        const finalSpeech = stitchSpeechTranscripts(finalChunks);
+        let cleanInterim = cleanSpeechChunk(rawInterim);
+
+        // Prevenir colisiones: quitar del interim palabras que ya fueron consolidadas en finalSpeech
+        if(cleanInterim && finalSpeech){
+          const finalLower = finalSpeech.toLowerCase();
+          const interimLower = cleanInterim.toLowerCase();
+
+          if(finalLower.endsWith(interimLower) || finalLower === interimLower){
+            cleanInterim = '';
+          } else if(interimLower.startsWith(finalLower)){
+            cleanInterim = cleanInterim.slice(finalSpeech.length).trim();
+          } else {
+            const fWords = finalSpeech.split(/\s+/);
+            const iWords = cleanInterim.split(/\s+/);
+            let overlap = 0;
+            const maxOverlap = Math.min(fWords.length, iWords.length, 6);
+            for(let k = maxOverlap; k >= 1; k--){
+              const fEnd = fWords.slice(fWords.length - k).map(w => w.toLowerCase()).join(' ');
+              const iStart = iWords.slice(0, k).map(w => w.toLowerCase()).join(' ');
+              if(fEnd === iStart){
+                overlap = k;
+                break;
+              }
+            }
+            if(overlap > 0){
+              cleanInterim = iWords.slice(overlap).join(' ');
             }
           }
         }
 
-        const finalCombined = finalPhrases.join(' ');
-        let speechPart = finalCombined;
-        if(currentInterim){
-          speechPart += (speechPart ? ' ' : '') + currentInterim;
+        let sessionSpeech = finalSpeech;
+        if(cleanInterim){
+          sessionSpeech += (sessionSpeech ? ' ' : '') + cleanInterim;
         }
 
-        el.editor.value = textBeforeDictation + speechPart;
+        el.editor.value = textBeforeDictation + sessionSpeech;
         triggerAutoSave();
       };
 
@@ -1645,6 +1768,11 @@
 
       recognition.onend = () => {
         stopDictation();
+        if(el.editor){
+          el.editor.value = el.editor.value.replace(/[ \t]+$/, '');
+        }
+        triggerAutoSave();
+        setStatus('Dictado finalizado. Pulsa 🎙️ para volver a dictar.');
       };
     } catch(err) {
       console.warn('SpeechRecognition initialization error:', err);
@@ -1659,7 +1787,6 @@
 
   function stopDictation(){
     state.recognizing = false;
-    finalPhrases = [];
     textBeforeDictation = '';
     if(el.dictateBtn && SR){
       el.dictateBtn.classList.remove('on');
@@ -1682,7 +1809,7 @@
     if(state.recognizing){
       try { recognition.stop(); } catch(e){}
       stopDictation();
-      setStatus('Dictado detenido.');
+      setStatus('Dictado pausado.');
     } else {
       try {
         recognition.start();
@@ -1784,7 +1911,6 @@
     }
 
     const prevEditorText = el.editor.value;
-    const prevTags = el.tagsInput.value;
 
     const originalBtnHtml = el.aiMenuBtn ? el.aiMenuBtn.innerHTML : '';
     if(el.aiMenuBtn){
@@ -1812,31 +1938,23 @@
         if(result){
           el.editor.value = result;
           triggerAutoSave();
-          showUndoAiStatus('Dictado puntuado y pulido ✓', prevEditorText, prevTags);
+          showUndoAiStatus('Dictado puntuado y pulido ✓', prevEditorText);
         } else {
           setStatus('No se generaron cambios en el texto.');
         }
-      } else if(action === 'title_and_tags'){
-        let appliedTitle = data.title || '';
-        let appliedTags = data.tags || [];
-
-        if(appliedTags.length > 0){
-          const currentTagsList = parseTags(el.tagsInput.value);
-          const merged = Array.from(new Set([...currentTagsList, ...appliedTags])).slice(0, 8);
-          el.tagsInput.value = merged.join(', ');
-        }
-
+      } else if(action === 'suggest_title' || action === 'title_and_tags'){
+        let appliedTitle = data.title || data.result || '';
         if(appliedTitle){
-          const lines = el.editor.value.split('\n');
-          if(lines[0] && lines[0].startsWith('# ')){
-            lines[0] = `# ${appliedTitle}`;
-            el.editor.value = lines.join('\n');
-          } else {
-            el.editor.value = `# ${appliedTitle}\n\n` + el.editor.value.trim();
+          appliedTitle = appliedTitle.replace(/^["'#\s]+|["'\s]+$/g, '').trim();
+          const prevTitle = el.noteTitleInput ? el.noteTitleInput.value : '';
+          if(el.noteTitleInput){
+            el.noteTitleInput.value = appliedTitle;
           }
+          triggerAutoSave();
+          showUndoAiStatus(`Título sugerido: "${appliedTitle}" ✓`, prevEditorText, prevTitle);
+        } else {
+          setStatus('No se pudo sugerir un título.');
         }
-        triggerAutoSave();
-        showUndoAiStatus(`Título y etiquetas generadas ✓`, prevEditorText, prevTags);
       } else if(action === 'summarize'){
         openAiResultModal('📝 Resumen de ideas clave', data.result || '', 'summarize');
         setStatus('Resumen generado.');
@@ -1858,7 +1976,7 @@
 
   // ---------- EVENTS ----------
   el.editor.addEventListener('input', triggerAutoSave);
-  el.tagsInput.addEventListener('input', triggerAutoSave);
+  if(el.noteTitleInput) el.noteTitleInput.addEventListener('input', triggerAutoSave);
   el.addFolderBtn.addEventListener('click', addFolder);
   el.newFolderInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') addFolder(); });
   el.playBtn.addEventListener('click', () => speak());
@@ -1957,12 +2075,11 @@
     el.aiResultReplaceBtn.addEventListener('click', () => {
       if(currentAiResult){
         const prevText = el.editor.value;
-        const prevTags = el.tagsInput.value;
         el.editor.value = currentAiResult;
         triggerAutoSave();
         closeAiResultModal();
         el.editor.focus();
-        showUndoAiStatus('Nota reemplazada con el contenido de la IA.', prevText, prevTags);
+        showUndoAiStatus('Nota reemplazada con el contenido de la IA.', prevText);
       }
     });
   }
@@ -2000,6 +2117,13 @@
   if(el.quickPreviewOverlay){
     el.quickPreviewOverlay.addEventListener('click', (e) => {
       if(e.target === el.quickPreviewOverlay) closeQuickPreview();
+    });
+  }
+  if(el.quickPreviewWhatsappBtn){
+    el.quickPreviewWhatsappBtn.addEventListener('click', () => {
+      if(currentPreviewNote && currentPreviewNote.text){
+        shareToWhatsApp(currentPreviewNote.text);
+      }
     });
   }
   if(el.quickPreviewSpeakBtn){
@@ -2040,6 +2164,29 @@
     });
   }
 
+  // ---------- COMPARTIR EN WHATSAPP ----------
+  function shareToWhatsApp(text, title){
+    let clean = (text || '').trim();
+    const cleanTitle = (title || '').trim();
+    if(cleanTitle){
+      clean = `*${cleanTitle}*\n\n` + clean;
+    }
+    if(!clean){
+      setStatus('No hay contenido en la nota para compartir.', true);
+      return;
+    }
+    const encoded = encodeURIComponent(clean);
+    const url = `https://api.whatsapp.com/send?text=${encoded}`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setStatus('Abriendo WhatsApp con tu nota… ✓');
+  }
+
   // Pestañas móviles y botón crear nota móvil
   if(el.tabEditorBtn){
     el.tabEditorBtn.addEventListener('click', () => setMobileTab('editor'));
@@ -2054,8 +2201,8 @@
         autoSaveTimeout = null;
       }
       state.currentNoteId = null;
+      if(el.noteTitleInput) el.noteTitleInput.value = '';
       el.editor.value = '';
-      el.tagsInput.value = '';
       setMobileTab('editor');
       el.editor.focus();
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2063,14 +2210,68 @@
     });
   }
 
+  // ---------- MODAL DE CONFIGURACIÓN (Voz y Guardado) ----------
+  function openSettingsModal(){
+    if(el.settingsOverlay){
+      el.settingsOverlay.classList.add('open');
+    }
+  }
+  function closeSettingsModal(){
+    if(el.settingsOverlay){
+      el.settingsOverlay.classList.remove('open');
+    }
+  }
+
+  if(el.settingsBtn) el.settingsBtn.addEventListener('click', openSettingsModal);
+  if(el.sidebarSettingsBtn) el.sidebarSettingsBtn.addEventListener('click', () => {
+    closeSidebar();
+    openSettingsModal();
+  });
+  if(el.quickSettingsBtn) el.quickSettingsBtn.addEventListener('click', openSettingsModal);
+  if(el.settingsCloseBtn) el.settingsCloseBtn.addEventListener('click', closeSettingsModal);
+  if(el.settingsCloseX) el.settingsCloseX.addEventListener('click', closeSettingsModal);
+  if(el.settingsOverlay){
+    el.settingsOverlay.addEventListener('click', (e) => {
+      if(e.target === el.settingsOverlay) closeSettingsModal();
+    });
+  }
+
+  if(el.settingsWhatsappBtn){
+    el.settingsWhatsappBtn.addEventListener('click', () => {
+      const text = el.editor.value.trim();
+      const title = el.noteTitleInput ? el.noteTitleInput.value.trim() : '';
+      if(!text && !title){
+        setStatus('Escribe o abre una nota en el editor antes de compartirla.', true);
+        return;
+      }
+      closeSettingsModal();
+      shareToWhatsApp(text, title);
+    });
+  }
+
   el.dictateBtn.addEventListener('click', toggleDictation);
-  el.previewVoiceBtn.addEventListener('click', () => {
-    speak('Hola, así suena la voz masculina en esta nota.');
+  if(el.previewVoiceBtn){
+    el.previewVoiceBtn.addEventListener('click', () => {
+      speak('Hola, esta es una prueba de voz para la lectura de tus notas en Bitácora.', true);
+    });
+  }
+
+  // Acciones de IA invocadas desde el modal de Configuración
+  document.querySelectorAll('.settings-ai-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.getAttribute('data-action');
+      if(action){
+        closeSettingsModal();
+        executeAiAction(action);
+      }
+    });
   });
-  el.voiceSelect.addEventListener('change', () => {
-    storageSet('preferredVoice', el.voiceSelect.value);
-    setStatus('Voz preferida guardada.');
-  });
+  if(el.voiceSelect){
+    el.voiceSelect.addEventListener('change', () => {
+      storageSet('preferredVoice', el.voiceSelect.value);
+      setStatus('Voz preferida guardada.');
+    });
+  }
   if(el.voiceGenderFilter){
     el.voiceGenderFilter.addEventListener('change', async () => {
       state.voiceGenderFilter = el.voiceGenderFilter.value;

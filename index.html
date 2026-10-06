@@ -39,9 +39,7 @@
     <p>Todo lo que escribes se guarda automáticamente en tu carpeta activa, incluso si cierras la aplicación.</p>
     <div class="sidebar-tools">
       <button class="sidebar-tool-btn" id="trashBtn">🗑️ Papelera <span id="trashCount"></span></button>
-      <button class="sidebar-tool-btn" id="exportBtn">💾 Exportar respaldo</button>
-      <button class="sidebar-tool-btn" id="importBtn">📥 Importar respaldo</button>
-      <input type="file" id="importFileInput" accept="application/json" hidden>
+      <button class="sidebar-tool-btn" id="sidebarSettingsBtn">⚙️ Configuración</button>
     </div>
     <div class="sidebar-version">
       <span>Versión</span>
@@ -86,6 +84,9 @@
       <div class="waveform" id="waveform" title="Ondas de voz / lectura">
         <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
       </div>
+      <button class="theme-toggle-btn" id="settingsBtn" type="button" aria-label="Abrir configuración" title="Configuración de voz y guardado">
+        <span class="theme-icon">⚙️</span>
+      </button>
       <button class="theme-toggle-btn" id="themeToggleBtn" type="button" aria-label="Cambiar a modo oscuro" title="Cambiar a modo oscuro">
         <span class="theme-icon" id="themeIcon">🌙</span>
       </button>
@@ -104,23 +105,19 @@
 
   <div class="content">
     <div class="editor-pane" id="editorPane">
+      <input type="text" id="noteTitleInput" class="note-title-input" placeholder="Título de la nota (opcional)…" maxlength="120" autocomplete="off">
       <textarea id="editor" placeholder="Escribe aquí lo que quieras que la voz lea… o pulsa «Dictar» para hablar y que se escriba solo."></textarea>
 
       <div class="toolbar">
         <div class="toolbar-group">
+          <button class="btn btn-dictate" id="dictateBtn">🎙️ Dictar</button>
           <button class="btn btn-primary" id="playBtn">🔊 Leer en voz alta</button>
           <button class="btn btn-stop" id="stopBtn" disabled>⏹ Detener</button>
-          <label class="autosave-quick-switch" id="autoSaveQuickSwitch" for="autoSaveCheckbox" title="Guardado automático activado. Clic para cambiar.">
-            <input type="checkbox" id="autoSaveCheckbox" checked>
-            <span class="autosave-quick-track"></span>
-            <span class="autosave-quick-label" id="autoSaveStatusLabel">Auto-guardar</span>
-          </label>
         </div>
 
         <div class="toolbar-divider"></div>
 
         <div class="toolbar-group">
-          <button class="btn btn-dictate" id="dictateBtn">🎙️ Dictar</button>
           <div class="ai-dropdown" id="aiDropdown">
             <button class="btn btn-ai" id="aiMenuBtn" type="button" title="Asistente de productividad (requiere internet)">
               <span class="ai-sparkle">✨</span> Asistente IA <span class="ai-status-dot online" id="aiStatusDot"></span>
@@ -141,11 +138,11 @@
                     <span>Agrega comas, puntos y párrafos sin alterar tus palabras</span>
                   </div>
                 </button>
-                <button class="ai-menu-item" data-action="title_and_tags" type="button">
-                  <span class="ai-icon">🏷️</span>
+                <button class="ai-menu-item" data-action="suggest_title" type="button">
+                  <span class="ai-icon">💡</span>
                   <div class="ai-item-text">
-                    <strong>Generar título y etiquetas</strong>
-                    <span>Sugiere título y tags basados en el contenido</span>
+                    <strong>Sugerir título para la nota</strong>
+                    <span>Genera un título corto basado en el contenido</span>
                   </div>
                 </button>
                 <button class="ai-menu-item" data-action="summarize" type="button">
@@ -171,37 +168,12 @@
 
         <div class="toolbar-group">
           <button class="btn btn-save" id="saveBtn">💾 Guardar nota</button>
-          <button class="btn btn-clear" id="clearBtn" title="Vaciar el editor">🧹 Borrar todo</button>
+          <button class="btn btn-clear" id="clearBtn" title="Vaciar el editor">🧹 Borrar</button>
         </div>
 
         <div class="toolbar-right">
-          <div class="voice-controls-cluster">
-            <div class="voice-row-main">
-              <select class="voice-gender-filter" id="voiceGenderFilter" title="Filtrar por tipo de voz">
-                <option value="male" selected>👨 Masculina</option>
-                <option value="all">👥 Todas</option>
-                <option value="female">👩 Femenina</option>
-              </select>
-              <select class="voice-select" id="voiceSelect" title="Seleccionar voz"></select>
-              <button class="btn btn-ghost" id="previewVoiceBtn" title="Probar esta voz">👂 Probar</button>
-            </div>
-            <div class="voice-row-tune" id="voiceTuneRow">
-              <label class="voice-pitch-label" for="voicePitchSelect" title="Ajuste de timbre de voz">
-                <span>🎚️ Timbre:</span>
-                <select class="voice-pitch-select" id="voicePitchSelect">
-                  <option value="deep">Muy grave (profundo)</option>
-                  <option value="male" selected>Grave (masculino)</option>
-                  <option value="normal">Natural (estándar)</option>
-                  <option value="high">Agudo</option>
-                </select>
-              </label>
-            </div>
-          </div>
+          <button class="btn btn-ghost btn-toolbar-settings" id="quickSettingsBtn" type="button" title="Configurar voz y guardado">⚙️ Ajustes</button>
         </div>
-      </div>
-      <div class="tags-row">
-        <span class="tags-row-label">🏷️ Etiquetas:</span>
-        <input type="text" id="tagsInput" placeholder="ideas, trabajo, personal… (separadas por coma)" maxlength="120">
       </div>
       <div class="status-line" id="statusLine"></div>
     </div>
@@ -247,7 +219,6 @@
             </button>
           </div>
         </div>
-        <div class="tag-filter-row" id="tagFilterRow"></div>
       </div>
 
       <div id="notesList"></div>
@@ -264,12 +235,138 @@
     <h3 class="preview-modal-title" id="quickPreviewTitle">Título de la nota</h3>
     <div class="preview-modal-meta" id="quickPreviewMeta"></div>
     <div class="preview-modal-content" id="quickPreviewContent"></div>
-    <div class="preview-modal-tags" id="quickPreviewTags"></div>
     <div class="modal-actions preview-modal-actions">
+      <button class="btn btn-whatsapp" id="quickPreviewWhatsappBtn" type="button">💬 WhatsApp</button>
       <button class="btn btn-ghost" id="quickPreviewCopyBtn" type="button">📋 Copiar texto</button>
       <button class="btn btn-primary" id="quickPreviewSpeakBtn" type="button">🔊 Leer en voz alta</button>
       <button class="btn btn-save" id="quickPreviewEditBtn" type="button">✏️ Abrir en editor</button>
       <button class="btn btn-cancel" id="quickPreviewCloseBtn" type="button">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="settingsOverlay">
+  <div class="modal-box settings-modal-box">
+    <div class="settings-modal-header">
+      <h4>⚙️ Configuración</h4>
+      <button class="sidebar-close-btn" id="settingsCloseX" style="display:block;" aria-label="Cerrar configuración">✕</button>
+    </div>
+
+    <div class="settings-content">
+      <div class="settings-section">
+        <h5 class="settings-section-title">🗣️ Síntesis de voz (Lectura)</h5>
+        <p class="settings-section-desc">Personaliza la voz con la que Bitácora lee tus notas en voz alta.</p>
+
+        <div class="settings-field">
+          <label class="settings-label" for="voiceGenderFilter">Filtro de voz:</label>
+          <select class="settings-select" id="voiceGenderFilter" title="Filtrar por tipo de voz">
+            <option value="male" selected>👨 Masculina</option>
+            <option value="all">👥 Todas las voces</option>
+            <option value="female">👩 Femenina</option>
+          </select>
+        </div>
+
+        <div class="settings-field">
+          <label class="settings-label" for="voiceSelect">Voz del sistema:</label>
+          <div class="settings-voice-row">
+            <select class="settings-select voice-select" id="voiceSelect" title="Seleccionar voz"></select>
+            <button class="btn btn-ghost" id="previewVoiceBtn" type="button" title="Probar esta voz">👂 Probar</button>
+          </div>
+        </div>
+
+        <div class="settings-field">
+          <label class="settings-label" for="voicePitchSelect">Timbre / Tono:</label>
+          <select class="settings-select" id="voicePitchSelect" title="Ajuste de timbre de voz">
+            <option value="deep">Muy grave (profundo)</option>
+            <option value="male" selected>Grave (masculino)</option>
+            <option value="normal">Natural (estándar)</option>
+            <option value="high">Agudo</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h5 class="settings-section-title">✨ Asistente IA (Productividad)</h5>
+        <p class="settings-section-desc">Acciones inteligentes directas sobre el texto actual de tu nota.</p>
+        <div class="settings-ai-actions">
+          <button class="settings-ai-btn" data-action="format_dictation" type="button">
+            <span>✍️</span>
+            <div>
+              <strong>Puntuar y pulir dictado</strong>
+              <small>Agrega comas, puntos y mayúsculas sin alterar tus palabras</small>
+            </div>
+          </button>
+          <button class="settings-ai-btn" data-action="suggest_title" type="button">
+            <span>💡</span>
+            <div>
+              <strong>Sugerir título</strong>
+              <small>Genera un título corto basado en el contenido</small>
+            </div>
+          </button>
+          <button class="settings-ai-btn" data-action="summarize" type="button">
+            <span>📝</span>
+            <div>
+              <strong>Resumir ideas clave</strong>
+              <small>Extrae los puntos más importantes de la nota</small>
+            </div>
+          </button>
+          <button class="settings-ai-btn" data-action="extract_tasks" type="button">
+            <span>✅</span>
+            <div>
+              <strong>Extraer tareas pendientes</strong>
+              <small>Organiza compromisos y pendientes en una lista</small>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h5 class="settings-section-title">💾 Guardado</h5>
+        <div class="settings-toggle-card">
+          <div class="settings-toggle-info">
+            <span class="settings-toggle-title">Guardado automático</span>
+            <span class="settings-toggle-sub">Guarda tus notas automáticamente mientras escribes para que nunca pierdas cambios.</span>
+          </div>
+          <label class="settings-switch" title="Activar/desactivar guardado automático">
+            <input type="checkbox" id="autoSaveCheckbox" checked>
+            <span class="settings-switch-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h5 class="settings-section-title">📲 Compartir en WhatsApp</h5>
+        <p class="settings-section-desc">Envía el texto de la nota actual directamente a un chat o contacto de WhatsApp.</p>
+        <button class="btn btn-whatsapp" id="settingsWhatsappBtn" type="button">
+          💬 Compartir nota actual por WhatsApp
+        </button>
+      </div>
+
+      <div class="settings-section">
+        <h5 class="settings-section-title">📦 Copia de Seguridad y Respaldo</h5>
+        <p class="settings-section-desc">Guarda todas tus notas y carpetas en un archivo seguro en tu dispositivo o restaura una copia previa.</p>
+        <div class="settings-backup-actions">
+          <button class="settings-backup-btn" id="exportBtn" type="button">
+            <span class="settings-backup-icon">💾</span>
+            <div class="settings-backup-info">
+              <strong>Exportar respaldo (.json)</strong>
+              <small>Descarga un archivo con todas tus carpetas y notas</small>
+            </div>
+          </button>
+          <button class="settings-backup-btn" id="importBtn" type="button">
+            <span class="settings-backup-icon">📥</span>
+            <div class="settings-backup-info">
+              <strong>Importar respaldo (.json)</strong>
+              <small>Restaura notas y carpetas desde un archivo de respaldo</small>
+            </div>
+          </button>
+          <input type="file" id="importFileInput" accept="application/json" hidden>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="settingsCloseBtn" type="button">Listo</button>
     </div>
   </div>
 </div>
