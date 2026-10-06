@@ -118,6 +118,7 @@ cd BITACORA-HABLADA-2.0
 ```bash
 npm install
 ```
+> **Nota:** Este proyecto usa npm. No uses bun ni yarn: el lockfile oficial es `package-lock.json`.
 
 ### 3. Generar o actualizar Iconos PNG (Opcional)
 Si modificas `public/icon.svg` o `public/icon-maskable.svg`, ejecuta el siguiente script para rasterizar los PNG requeridos por la PWA e iOS:
