@@ -9,12 +9,14 @@
     "start": "node server.js",
     "lint": "eslint .",
     "test": "node --test",
+    "icons": "node scripts/generate-icons.mjs",
     "preview": "vite preview --host 0.0.0.0 --port 3000"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "eslint": "^10.12.0",
     "globals": "^17.13.0",
+    "sharp": "^0.35.5",
     "vite": "^6.0.0"
   },
   "dependencies": {

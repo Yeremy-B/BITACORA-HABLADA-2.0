@@ -79,12 +79,15 @@ bitacora-hablada/
 │   ├── main.js             # Lógica de la aplicación (dictado, notas, carpetas, voz, eventos)
 │   └── style.css           # Estilos completos, temas claro/oscuro y diseño responsivo
 ├── public/
-│   ├── manifest.json       # Manifiesto de la PWA
-│   ├── sw.js               # Service Worker v2.3.1 con caché offline inteligente por stem
-│   ├── icon.svg            # Icono vectorial para propósitos estándar (any)
-│   ├── icon-maskable.svg   # Icono vectorial full-bleed para propósitos maskable en Android
-│   ├── icon-192.png        # Icono de la aplicación (192x192)
-│   └── icon-512.png        # Icono de la aplicación (512x512)
+│   ├── manifest.json                                # Manifiesto de la PWA
+│   ├── sw.js                                        # Service Worker v2.3.1 con caché offline inteligente por stem
+│   ├── icon.svg                                     # Icono vectorial para propósitos estándar (any)
+│   ├── icon-maskable.svg                            # Icono vectorial full-bleed para propósitos maskable en Android
+│   ├── icon-192.png / icon-512.png                  # PNG reales generados desde icon.svg (purpose any)
+│   ├── icon-maskable-192.png / icon-maskable-512.png # PNG a sangre completa generados desde icon-maskable.svg
+│   └── apple-touch-icon.png                         # 180x180 para iOS
+├── scripts/
+│   └── generate-icons.mjs      # Genera los PNG de la PWA: npm run icons
 ├── tests/
 │   ├── aiService.test.js        # Pruebas unitarias de los fallbacks locales
 │   ├── aiService.client.test.js # Pruebas unitarias del cliente de IA, reintentos y centinela
@@ -116,7 +119,14 @@ cd BITACORA-HABLADA-2.0
 npm install
 ```
 
-### 3. Configurar variables de entorno (Opcional para Asistente IA)
+### 3. Generar o actualizar Iconos PNG (Opcional)
+Si modificas `public/icon.svg` o `public/icon-maskable.svg`, ejecuta el siguiente script para rasterizar los PNG requeridos por la PWA e iOS:
+```bash
+npm run icons
+```
+Este comando genera automáticamente `icon-192.png`, `icon-512.png`, las versiones maskable y `apple-touch-icon.png` (180x180). Recuerda subir los PNG resultantes.
+
+### 4. Configurar variables de entorno (Opcional para Asistente IA)
 Crea un archivo `.env` basado en `.env.example`:
 ```bash
 cp .env.example .env
