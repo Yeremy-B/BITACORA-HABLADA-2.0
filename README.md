@@ -1,20 +1,65 @@
-# 🎙️ Bitácora Hablada 2.0 (v2.0.0)
+# 🎙️ Bitácora Hablada 2.0
 
-Una aplicación web progresiva (**PWA**) y moderna para la captura, organización, dictado y lectura de notas mediante la **Web Speech API** (reconocimiento y síntesis de voz). Diseñada para ofrecer persistencia local, respaldo en JSON y compatibilidad multiplataforma (móvil, tablet y escritorio).
+> **Escribe · Escucha · Guarda**  
+> Una aplicación web progresiva (**PWA**) y moderna para la captura rápida, dictado por voz, organización inteligente y lectura en voz alta de notas personales y profesionales.
+
+Diseñada con filosofía **Local-First**, incluye persistencia en el dispositivo, soporte sin conexión, un asistente de productividad impulsado por **Google Gemini** y un diseño editorial con modo claro y oscuro.
 
 ---
 
 ## ✨ Características Principales
 
-- 🎙️ **Dictado por Voz**: Transcripción de pensamientos y notas en tiempo real mediante `SpeechRecognition` nativo en español (`es-CL` / idioma local del navegador).
-- 💾 **Guardado Automático (Autosave)**: Todo lo que escribes o dictas se guarda automáticamente con debounce en tu carpeta activa sin riesgo de perder cambios.
-- 🔊 **Lectura de Notas en Voz Alta**: Síntesis de voz fluida (`SpeechSynthesis`) con selector de voces en español, acentos latinoamericanos y control de reproducción.
-- 📁 **Organización por Carpetas**: Clasifica y mueve tus notas entre diferentes categorías o proyectos personalizados.
-- 🗑️ **Papelera de Reciclaje**: Recupera notas eliminadas o vacíala definitivamente cuando lo desees (retención temporal de 30 días).
-- 🏷️ **Etiquetado y Búsqueda Rápida**: Filtra instantáneamente por texto, etiquetas (#tags) y fechas tanto en la carpeta actual como en todas las carpetas.
-- 📥/📤 **Respaldo y Restauración**: Exporta e importa todas tus carpetas y notas en formato JSON con un solo clic.
-- 📱 **PWA & Modo Offline**: Instalable en dispositivos Android, iOS y PC de escritorio. Utiliza Service Worker con estrategia de caché inteligente para cargar la interfaz y notas sin conexión a internet.
-- 🎨 **Diseño Editorial & Modo Oscuro/Claro**: Interfaz con tipografías Fraunces e IBM Plex Mono, animaciones de onda de sonido y adaptación a cualquier tamaño de pantalla.
+### 🎙️ Dictado por Voz Inteligente (Mobile & Desktop)
+- **Transcripción en tiempo real** mediante la Web Speech API (`SpeechRecognition`).
+- **Motor anti-duplicación móvil**: Filtro especializado para corregir comportamientos de navegadores móviles (Chrome Android / WebKit iOS), eliminando repeticiones involuntarias y desfases de audio.
+- Compatible con dictado continuo y detección de pausas naturales.
+
+### 🏷️ Títulos Dedicados & Detección Inteligente
+- **Campo de título opcional** en la parte superior del editor para organizar tus ideas fácilmente.
+- Si no asignas un título manualmente, el sistema detecta de forma inteligente la primera línea o puedes usar el Asistente IA para sugerir uno automáticamente.
+
+### ✨ Asistente IA de Productividad (Gemini)
+Integrado directamente en el editor y respaldado por un backend seguro con `@google/genai`:
+- **✍️ Puntuar y pulir dictado**: Añade comas, puntos, mayúsculas y párrafos limpios sin alterar tus palabras ni modismos.
+- **💡 Sugerir título**: Analiza la nota y genera un título descriptivo y conciso (máximo 6 palabras).
+- **📝 Resumir ideas clave**: Sintetiza notas extensas en viñetas claras y accionables.
+- **✅ Extraer tareas pendientes**: Identifica compromisos, fechas o acciones pendientes y crea una lista de pendientes.
+- **Fallback local inteligente**: En caso de no tener conexión a internet o saturación temporal del servicio, la app aplica reglas de puntuación y extracción local para no interrumpir tu flujo de trabajo.
+
+### 🗣️ Síntesis de Voz Personalizable (Lectura en voz alta)
+- Lectura de notas con control de reproducción y ondas de voz interactivas.
+- **Filtro de género de voz**: Cambia rápidamente entre voces masculinas, femeninas o todas las disponibles en tu sistema operativo.
+- **Ajuste de tono / timbre**: Voces muy graves, graves, naturales o agudas.
+- **Botón de prueba rápida**: Escucha una muestra del tono seleccionado antes de aplicar los cambios.
+
+### 📁 Organización y Gestión de Notas
+- **Carpetas personalizables**: Crea y organiza notas por proyectos, temas o áreas personales.
+- **Papelera de reciclaje**: Recupera notas eliminadas o vacíala definitivamente cuando lo desees.
+- **Mover notas**: Mueve notas entre carpetas con un solo toque desde el menú contextual.
+- **Vistas adaptables**: Alterna entre **Vista previa detallada** (con extracto y estadísticas) y **Vista compacta de lista**.
+- **Ordenamiento flexible**: Ordena tus notas por fecha reciente, más antigua o alfabético (A-Z).
+- **Búsqueda instantánea y global**: Busca por palabras clave dentro de la carpeta activa o activa el interruptor para buscar en **todas las carpetas** simultáneamente.
+
+### 📲 Compartir en WhatsApp
+- Comparte el título y contenido de cualquier nota directamente en un chat o contacto de WhatsApp con un solo clic, tanto desde el editor como desde la vista previa y la configuración.
+
+### 📦 Copia de Seguridad y Respaldo
+- **Ubicación centralizada**: Integrada dentro del panel de **⚙️ Configuración** para mantener la barra lateral limpia y enfocada.
+- **Exportar respaldo (.json)**: Guarda todas tus carpetas y notas en un archivo seguro en tu dispositivo.
+- **Importar respaldo (.json)**: Restaura tus notas y carpetas previas sin perder la información existente.
+
+### 💾 Guardado Automático (Autosave)
+- Guardado instantáneo con *debounce* en `localStorage`.
+- Opción de activar o desactivar el guardado automático según tus preferencias desde Configuración.
+
+### 📱 PWA & Modo Offline
+- **Instalable** en dispositivos móviles (Android / iOS) y computadoras de escritorio (Chrome, Edge, Safari).
+- **Service Worker** con caché inteligente para cargar la interfaz y acceder a todas tus notas incluso sin conexión a internet.
+
+### 🎨 Diseño Editorial & Accesibilidad
+- Tipografía editorial combinando **Fraunces** para títulos y **Inter** / **IBM Plex Mono** para lectura clara.
+- **Tema Claro / Oscuro**: Alterna con un solo toque; el tema seleccionado se memoriza automáticamente.
+- Animación de forma de onda (*waveform*) sincronizada con la lectura y dictado.
 
 ---
 
@@ -22,23 +67,31 @@ Una aplicación web progresiva (**PWA**) y moderna para la captura, organizació
 
 ```text
 bitacora-hablada/
-├── index.html          # Estructura principal con rutas relativas compatibles con GitHub Pages
-├── vite.config.js      # Configuración de Vite con base relativa './'
+├── index.html              # Estructura principal, modales y panel de configuración
+├── vite.config.js          # Configuración de empaquetado Vite
+├── server.js               # Servidor de producción Express y proxy de API para IA
+├── server/
+│   └── aiService.js        # Integración con Google Gen AI SDK (@google/genai)
 ├── src/
-│   ├── style.css       # Estilos, temas claro/oscuro y diseño responsivo
-│   └── main.js         # Lógica de la aplicación (Web Speech API, autosave, carpetas, papelera)
+│   ├── main.js             # Lógica de la aplicación (dictado, notas, carpetas, voz, eventos)
+│   └── style.css           # Estilos completos, temas claro/oscuro y diseño responsivo
 ├── public/
-│   ├── manifest.json   # Manifiesto PWA para instalación en móviles y PC
-│   ├── sw.js           # Service Worker v2.0 con caché inteligente offline
-│   ├── icon-192.png    # Icono de la app (192x192)
-│   └── icon-512.png    # Icono de la app (512x512)
-├── package.json        # Configuración del proyecto y versión 2.0.0
-└── README.md           # Documentación técnica del proyecto
+│   ├── manifest.json       # Manifiesto de la PWA
+│   ├── sw.js               # Service Worker con caché offline
+│   ├── icon-192.png        # Icono de la aplicación (192x192)
+│   └── icon-512.png        # Icono de la aplicación (512x512)
+├── .env.example            # Plantilla de variables de entorno (GEMINI_API_KEY)
+├── package.json            # Dependencias y scripts de ejecución
+└── README.md               # Documentación del proyecto
 ```
 
 ---
 
-## 🚀 Cómo Ejecutar el Proyecto
+## 🚀 Requisitos y Configuración
+
+### Prerrequisitos
+- **Node.js** 18.0 o superior
+- **npm** o **bun**
 
 ### 1. Clonar el repositorio
 ```bash
@@ -51,38 +104,58 @@ cd BITACORA-HABLADA-2.0
 npm install
 ```
 
-### 3. Iniciar el servidor de desarrollo
+### 3. Configurar variables de entorno (Opcional para Asistente IA)
+Crea un archivo `.env` basado en `.env.example`:
+```bash
+cp .env.example .env
+```
+
+Agrega tu clave de API de Gemini si deseas utilizar las funciones inteligentes en tu servidor local:
+```env
+GEMINI_API_KEY=tu_api_key_de_gemini
+```
+*(En el entorno de Google AI Studio, la clave se inyecta automáticamente).*
+
+---
+
+## 💻 Ejecución
+
+### Modo Desarrollo (Vite)
+Para desarrollo rápido con recarga de interfaz:
 ```bash
 npm run dev
 ```
+Abre en tu navegador `http://localhost:3000`.
 
-Abre tu navegador en `http://localhost:3000` (o el puerto que indique Vite).
-
-### 4. Compilar para Producción
+### Compilación y Servidor de Producción (Full-Stack)
+Para compilar la aplicación y servirla con el proxy de Express:
 ```bash
+# 1. Compilar archivos estáticos optimizados
 npm run build
+
+# 2. Iniciar el servidor
+npm start
 ```
-Los archivos optimizados se generarán en la carpeta `dist/` con rutas relativas, listos para desplegar en GitHub Pages, Vercel, Netlify o cualquier servidor web estático.
+El servidor quedará disponible en `http://localhost:3000` con soporte completo para la API de IA y fallback SPA.
 
 ---
 
-## 🌐 Despliegue en GitHub Pages
+## 🔒 Privacidad y Almacenamiento Local
 
-Gracias a las rutas relativas (`./`) configuradas en `index.html`, `vite.config.js` y `public/manifest.json`, la app es 100% compatible con subdirectorios de GitHub Pages:
-
-1. En tu repositorio de GitHub, ve a **Settings** > **Pages**.
-2. En **Build and deployment**, selecciona la rama donde publicas (o la carpeta `dist` / GitHub Actions).
-3. Tu app funcionará en `https://yeremy-b.github.io/BITACORA-HABLADA-2.0/` sin problemas de rutas 404.
+- **Tus datos te pertenecen**: Todas las notas y carpetas se guardan exclusivamente en el almacenamiento local de tu navegador (`localStorage`).
+- **Sin rastreo ni cuentas obligatorias**: La app funciona de forma privada y autónoma sin necesidad de registrar un usuario.
+- **Uso de IA transparente**: El texto de las notas solo se envía al servidor cuando presionas explícitamente una de las acciones del botón **✨ Asistente IA**.
 
 ---
 
-## 🔒 Privacidad y Almacenamiento
+## 🌐 Despliegue
 
-- **Almacenamiento Local**: Todas tus carpetas y notas se guardan de forma privada y local en tu propio navegador mediante `window.localStorage`. No se transfieren a servidores externos.
-- **Reconocimiento y Síntesis de Voz**: Utiliza las APIs nativas del navegador (`SpeechRecognition` y `SpeechSynthesis`). Ten en cuenta que la disponibilidad del dictado depende del soporte de tu navegador y dispositivo.
+La aplicación está lista para desplegarse en:
+- **Cloud Run / Docker / VPS**: Ejecutando `npm run build && npm start`.
+- **Hosting estático (Vercel, Netlify, GitHub Pages)**: El front-end estático compilado en `dist/` puede servirse en cualquier servidor estático; las notas, dictado y lectura continuarán funcionando al 100% en modo local-first.
 
 ---
 
 ## 📄 Licencia
 
-Este proyecto es de código abierto bajo la licencia [MIT](LICENSE).
+Este proyecto está bajo la licencia [MIT](LICENSE). Puedes usarlo, modificarlo y distribuirlo libremente.
