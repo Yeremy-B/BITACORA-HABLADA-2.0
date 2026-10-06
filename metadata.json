@@ -1,5 +1,5 @@
 {
-  "name": "Remix Bitacora-Hablada",
+  "name": "Bitácora Hablada 2.0",
   "description": "Bitácora Hablada 2.0 - Dictado por voz, guardado automático, lectura y PWA offline",
   "requestFramePermissions": [
     "microphone"

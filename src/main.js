@@ -68,6 +68,7 @@
     exportBtn: document.getElementById('exportBtn'),
     importBtn: document.getElementById('importBtn'),
     importFileInput: document.getElementById('importFileInput'),
+    settingsStorageInfo: document.getElementById('settingsStorageInfo'),
     moveMenu: document.getElementById('moveMenu'),
     readingOverlay: document.getElementById('readingOverlay'),
     readingText: document.getElementById('readingText'),
@@ -338,6 +339,42 @@
 
   // ---------- STORAGE (localStorage del navegador, funciona sin conexión) ----------
   const STORAGE_PREFIX = 'bitacoraHablada:';
+  const STORAGE_MAX_ESTIMATE_BYTES = 5 * 1024 * 1024; // ~5 MB
+  let storageWarningShownThisSession = false;
+
+  function getAppStorageUsage(){
+    let totalBytes = 0;
+    try {
+      if(typeof window !== 'undefined' && window.localStorage){
+        for(let i = 0; i < window.localStorage.length; i++){
+          const k = window.localStorage.key(i);
+          if(k && k.startsWith(STORAGE_PREFIX)){
+            const val = window.localStorage.getItem(k) || '';
+            totalBytes += (k.length + val.length) * 2;
+          }
+        }
+      }
+    }catch(_){
+      // Ignorar errores al calcular uso de almacenamiento
+    }
+    return totalBytes;
+  }
+
+  function checkStorageThreshold(){
+    if(storageWarningShownThisSession) return;
+    const bytes = getAppStorageUsage();
+    if(bytes >= STORAGE_MAX_ESTIMATE_BYTES * 0.8){
+      storageWarningShownThisSession = true;
+      setStatus('Almacenamiento casi lleno (>80%). Te sugerimos exportar un respaldo desde ⚙️ Configuración.', true);
+    }
+  }
+
+  function updateStorageUsageUI(){
+    if(!el.settingsStorageInfo) return;
+    const bytes = getAppStorageUsage();
+    const kb = (bytes / 1024).toFixed(1);
+    el.settingsStorageInfo.textContent = `Uso de almacenamiento: ${kb} KB de ~5 MB`;
+  }
 
   async function storageGet(key){
     try{
@@ -351,12 +388,27 @@
   async function storageSet(key, value){
     try{
       window.localStorage.setItem(STORAGE_PREFIX + key, value);
+      checkStorageThreshold();
+      updateStorageUsageUI();
     }catch(e){
-      setStatus('No se pudo guardar (¿memoria llena o modo privado?).', true);
+      const isQuota = e && (
+        e.name === 'QuotaExceededError' ||
+        e.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+        e.code === 22 ||
+        e.code === 1014
+      );
+      if(isQuota){
+        setStatus('Almacenamiento lleno: exporta un respaldo y libera espacio', true);
+      } else {
+        setStatus('No se pudo guardar (¿memoria llena o modo privado?).', true);
+      }
     }
   }
   async function storageDelete(key){
-    try{ window.localStorage.removeItem(STORAGE_PREFIX + key); }catch(e){}
+    try{ 
+      window.localStorage.removeItem(STORAGE_PREFIX + key);
+      updateStorageUsageUI();
+    }catch(e){}
   }
 
   async function loadFolders(){
@@ -1938,7 +1990,11 @@
         if(result){
           el.editor.value = result;
           triggerAutoSave();
-          showUndoAiStatus('Dictado puntuado y pulido ✓', prevEditorText);
+          if(data.fallback){
+            showUndoAiStatus('IA no disponible: se aplicó una versión simplificada local.', prevEditorText);
+          } else {
+            showUndoAiStatus('Dictado puntuado y pulido ✓', prevEditorText);
+          }
         } else {
           setStatus('No se generaron cambios en el texto.');
         }
@@ -1951,16 +2007,37 @@
             el.noteTitleInput.value = appliedTitle;
           }
           triggerAutoSave();
-          showUndoAiStatus(`Título sugerido: "${appliedTitle}" ✓`, prevEditorText, prevTitle);
+          if(data.fallback){
+            showUndoAiStatus('IA no disponible: se aplicó una versión simplificada local.', prevEditorText, prevTitle);
+          } else {
+            showUndoAiStatus(`Título sugerido: "${appliedTitle}" ✓`, prevEditorText, prevTitle);
+          }
         } else {
-          setStatus('No se pudo sugerir un título.');
+          if(data.fallback){
+            setStatus('IA no disponible: se aplicó una versión simplificada local.');
+          } else {
+            setStatus('No se pudo sugerir un título.');
+          }
         }
       } else if(action === 'summarize'){
         openAiResultModal('📝 Resumen de ideas clave', data.result || '', 'summarize');
-        setStatus('Resumen generado.');
+        if(data.fallback){
+          setStatus('IA no disponible: se aplicó una versión simplificada local.');
+        } else {
+          setStatus('Resumen generado.');
+        }
       } else if(action === 'extract_tasks'){
-        openAiResultModal('✅ Tareas pendientes detectadas', data.result || '', 'extract_tasks');
-        setStatus('Tareas extraídas.');
+        const result = data.result || '';
+        if(!result && data.fallback){
+          setStatus('IA no disponible: no se detectaron tareas pendientes en el texto.');
+        } else {
+          openAiResultModal('✅ Tareas pendientes detectadas', result, 'extract_tasks');
+          if(data.fallback){
+            setStatus('IA no disponible: se aplicó una versión simplificada local.');
+          } else {
+            setStatus('Tareas extraídas.');
+          }
+        }
       }
     } catch(err){
       console.error('[AI Action Error]:', err);
@@ -2212,6 +2289,7 @@
 
   // ---------- MODAL DE CONFIGURACIÓN (Voz y Guardado) ----------
   function openSettingsModal(){
+    updateStorageUsageUI();
     if(el.settingsOverlay){
       el.settingsOverlay.classList.add('open');
     }

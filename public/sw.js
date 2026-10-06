@@ -1,18 +1,54 @@
-// Bitácora Hablada Service Worker v2.2.0
-const CACHE_NAME = 'bitacora-hablada-v2.2.0';
+// Bitácora Hablada Service Worker v2.3.0
+const CACHE_NAME = 'bitacora-hablada-v2.3.0';
+
+// Utilidad para limpiar assets viejos con hash o limitar a 30 entradas
+async function manageAssetCache(cache, newUrl) {
+  try {
+    const isJs = newUrl.pathname.endsWith('.js');
+    const isCss = newUrl.pathname.endsWith('.css');
+    const keys = await cache.keys();
+
+    // Eliminar versiones antiguas del mismo tipo (.js o .css)
+    if (isJs || isCss) {
+      for (const req of keys) {
+        try {
+          const u = new URL(req.url);
+          if (u.pathname.includes('/assets/') && req.url !== newUrl.href) {
+            if ((isJs && u.pathname.endsWith('.js')) || (isCss && u.pathname.endsWith('.css'))) {
+              await cache.delete(req);
+            }
+          }
+        } catch {
+          // Ignorar URLs inválidas
+        }
+      }
+    }
+
+    // Limitar el caché de assets a un máximo de 30 entradas
+    const updatedKeys = await cache.keys();
+    const assetKeys = updatedKeys.filter((req) => req.url.includes('/assets/'));
+    if (assetKeys.length > 30) {
+      const toRemove = assetKeys.slice(0, assetKeys.length - 30);
+      for (const req of toRemove) {
+        await cache.delete(req);
+      }
+    }
+  } catch (err) {
+    console.warn('[SW] Error gestionando caché de assets:', err);
+  }
+}
 
 // Instalación: cachear los archivos fundamentales del shell
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(async (cache) => {
       const base = self.registration.scope;
-      // Precachear solo los archivos shell inmutables que existen tanto en dev como en build
+      // Precachear solo los archivos shell inmutables y el icono vectorial
       const assets = [
         base,
         new URL('index.html', base).href,
         new URL('manifest.json', base).href,
-        new URL('icon-192.png', base).href,
-        new URL('icon-512.png', base).href
+        new URL('icon.svg', base).href
       ];
 
       await Promise.allSettled(
@@ -75,10 +111,14 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request)
-        .then((networkResponse) => {
+        .then(async (networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             const copy = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+            const cache = await caches.open(CACHE_NAME);
+            if (url.pathname.includes('/assets/')) {
+              await manageAssetCache(cache, url);
+            }
+            await cache.put(event.request, copy);
           }
           return networkResponse;
         })

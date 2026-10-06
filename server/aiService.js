@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import { applyFallback } from './fallbacks.js';
 
 let aiInstance = null;
 
@@ -25,10 +26,16 @@ export async function processNoteWithAI(action, text) {
     throw new Error('El texto de la nota está vacío.');
   }
 
-  const ai = getAIClient();
+  let ai;
+  try {
+    ai = getAIClient();
+  } catch (err) {
+    console.warn('[AI Service] API no disponible, aplicando fallback local:', err.message);
+    return applyFallback(action, text);
+  }
 
-  let systemInstruction = '';
-  let prompt = '';
+  let systemInstruction;
+  let prompt;
 
   switch (action) {
     case 'format_dictation':
@@ -52,7 +59,7 @@ export async function processNoteWithAI(action, text) {
       systemInstruction =
         'Eres un asistente de productividad en español. ' +
         'Extrae de la nota todas las tareas pendientes, compromisos, fechas límite o acciones a realizar, en formato de lista con viñetas ("• "). ' +
-        'Si la nota no contiene tareas explícitas, indica brevemente qué acciones potenciales se desprenden de ella. ' +
+        'Si la nota no contiene tareas explícitas, responde únicamente con una cadena vacía. ' +
         'No agregues introducciones ni despedidas.';
       prompt = `Extrae las tareas pendientes de esta nota:\n\n${text}`;
       break;
@@ -79,21 +86,35 @@ export async function processNoteWithAI(action, text) {
 
   let response = null;
   let lastError = null;
+  const modelName = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 
-  // Reintento automático con retroceso si la API devuelve 503 (alta demanda temporal)
+  // Reintento automático con retroceso si la API devuelve 503 (alta demanda) o 429
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: modelName,
         contents: prompt,
         config: {
           systemInstruction,
           temperature: 0.3
         }
       });
-      if (response && response.text) break;
+      if (response && response.text) {
+        lastError = null;
+        break;
+      }
+      // Si la respuesta llegó sin texto y sin error, esperar con retroceso antes de reintentar
+      if (attempt < 3) {
+        await new Promise(res => setTimeout(res, attempt * 600));
+      }
     } catch (err) {
       lastError = err;
+      const is404 = err.status === 404 || (err.message && (err.message.includes('404') || err.message.toLowerCase().includes('not found')));
+      if (is404) {
+        console.error(`[AI Service] Error 404: El modelo "${modelName}" no fue encontrado. Revisa la variable de entorno GEMINI_MODEL.`);
+        break;
+      }
+
       const isTemporary = err.message && (err.message.includes('503') || err.message.includes('high demand') || err.message.includes('429'));
       if (attempt < 3 && isTemporary) {
         await new Promise(res => setTimeout(res, attempt * 600));
@@ -103,30 +124,18 @@ export async function processNoteWithAI(action, text) {
     }
   }
 
-  let resultText = response && response.text ? response.text.trim() : '';
-
-  // Fallback inteligente en caso de indisponibilidad temporal de la nube
-  if (!resultText) {
-    if (action === 'suggest_title') {
-      const firstLine = text.split('\n').map(l => l.replace(/^[#\-*\s]+/, '').trim()).find(l => l.length > 0) || text;
-      const words = firstLine.split(/\s+/).slice(0, 6).join(' ');
-      resultText = words.length > 40 ? words.slice(0, 40) + '…' : words;
-    } else if (action === 'format_dictation') {
-      // Puntuación básica de respaldo
-      let formatted = text.trim();
-      formatted = formatted.charAt(0).toUpperCase() + formatted.slice(1);
-      if (!/[.!?]$/.test(formatted)) formatted += '.';
-      resultText = formatted;
-    } else if (action === 'summarize') {
-      const sentences = text.split(/[.\n]+/).map(s => s.trim()).filter(Boolean);
-      resultText = sentences.slice(0, 3).map(s => `• ${s}`).join('\n');
-    } else if (action === 'extract_tasks') {
-      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-      const tasks = lines.filter(l => /hacer|comprar|llamar|enviar|revisar|pendiente|tarea|ir a|pagar/i.test(l));
-      resultText = tasks.length > 0
-        ? tasks.map(t => `• ${t.replace(/^[•\-\s]+/, '')}`).join('\n')
-        : '• ' + (lines[0] || 'Revisar notas pendientes');
+  if (lastError) {
+    const is404 = lastError.status === 404 || (lastError.message && (lastError.message.includes('404') || lastError.message.toLowerCase().includes('not found')));
+    if (!is404) {
+      console.warn('[AI Service] No se pudo obtener respuesta de Gemini:', lastError.message || lastError);
     }
+  }
+
+  const resultText = response && response.text ? response.text.trim() : '';
+
+  // Fallback inteligente en caso de indisponibilidad de la nube
+  if (!resultText) {
+    return applyFallback(action, text);
   }
 
   if (action === 'suggest_title') {
@@ -140,21 +149,15 @@ export async function processNoteWithAI(action, text) {
 
   if (action === 'title_and_tags') {
     try {
-      // Intenta extraer el JSON del texto resultante
       const cleanJson = resultText.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
       const parsed = JSON.parse(cleanJson);
       return {
         action,
-        title: parsed.title || '',
+        title: typeof parsed.title === 'string' ? parsed.title : '',
         tags: Array.isArray(parsed.tags) ? parsed.tags : []
       };
-    } catch (e) {
-      return {
-        action,
-        title: 'Nota sin título',
-        tags: [],
-        rawText: resultText
-      };
+    } catch {
+      return applyFallback('title_and_tags', text, resultText);
     }
   }
 

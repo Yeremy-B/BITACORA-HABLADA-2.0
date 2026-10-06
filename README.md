@@ -68,20 +68,27 @@ Integrado directamente en el editor y respaldado por un backend seguro con `@goo
 ```text
 bitacora-hablada/
 ├── index.html              # Estructura principal, modales y panel de configuración
-├── vite.config.js          # Configuración de empaquetado Vite
-├── server.js               # Servidor de producción Express y proxy de API para IA
+├── vite.config.js          # Configuración de empaquetado Vite con middleware dev
+├── server.js               # Servidor de producción Express con rate limit y proxy de IA
 ├── server/
-│   └── aiService.js        # Integración con Google Gen AI SDK (@google/genai)
+│   ├── aiService.js        # Integración con Google Gen AI SDK (@google/genai)
+│   ├── fallbacks.js        # Lógica de fallback local para modo offline / sin API
+│   └── validate.js         # Validación compartida de tamaño y formato para /api/ai
 ├── src/
 │   ├── main.js             # Lógica de la aplicación (dictado, notas, carpetas, voz, eventos)
 │   └── style.css           # Estilos completos, temas claro/oscuro y diseño responsivo
 ├── public/
 │   ├── manifest.json       # Manifiesto de la PWA
-│   ├── sw.js               # Service Worker con caché offline
+│   ├── sw.js               # Service Worker v2.3.0 con caché offline inteligente
+│   ├── icon.svg            # Icono vectorial adaptado a zona segura (maskable y any)
 │   ├── icon-192.png        # Icono de la aplicación (192x192)
 │   └── icon-512.png        # Icono de la aplicación (512x512)
-├── .env.example            # Plantilla de variables de entorno (GEMINI_API_KEY)
+├── tests/
+│   └── aiService.test.js   # Pruebas unitarias de los fallbacks locales con test runner de Node
+├── .env.example            # Plantilla de variables de entorno (GEMINI_API_KEY, GEMINI_MODEL)
+├── eslint.config.js        # Configuración de ESLint (flat config)
 ├── package.json            # Dependencias y scripts de ejecución
+├── LICENSE                 # Licencia MIT (2026 Yeremy Briones Herrera)
 └── README.md               # Documentación del proyecto
 ```
 
@@ -91,7 +98,7 @@ bitacora-hablada/
 
 ### Prerrequisitos
 - **Node.js** 18.0 o superior
-- **npm** o **bun**
+- **npm**
 
 ### 1. Clonar el repositorio
 ```bash
@@ -110,15 +117,17 @@ Crea un archivo `.env` basado en `.env.example`:
 cp .env.example .env
 ```
 
-Agrega tu clave de API de Gemini si deseas utilizar las funciones inteligentes en tu servidor local:
+Configura tus credenciales y modelo deseado si ejecutas el backend con IA:
 ```env
 GEMINI_API_KEY=tu_api_key_de_gemini
+GEMINI_MODEL=gemini-3.8-flash
 ```
-*(En el entorno de Google AI Studio, la clave se inyecta automáticamente).*
+- `GEMINI_API_KEY`: Clave de API de Google Gemini (inyectada automáticamente en Google AI Studio).
+- `GEMINI_MODEL`: Modelo de Gemini a emplear (por defecto `gemini-3.8-flash`).
 
 ---
 
-## 💻 Ejecución
+## 💻 Ejecución y Pruebas
 
 ### Modo Desarrollo (Vite)
 Para desarrollo rápido con recarga de interfaz:
@@ -126,6 +135,18 @@ Para desarrollo rápido con recarga de interfaz:
 npm run dev
 ```
 Abre en tu navegador `http://localhost:3000`.
+
+### Pruebas Unitarias
+Ejecuta la suite de pruebas nativa de Node.js para verificar los fallbacks de IA:
+```bash
+npm test
+```
+
+### Verificación de Código (Linter)
+Verifica la calidad y sintaxis del código con ESLint:
+```bash
+npm run lint
+```
 
 ### Compilación y Servidor de Producción (Full-Stack)
 Para compilar la aplicación y servirla con el proxy de Express:
@@ -136,7 +157,7 @@ npm run build
 # 2. Iniciar el servidor
 npm start
 ```
-El servidor quedará disponible en `http://localhost:3000` con soporte completo para la API de IA y fallback SPA.
+El servidor quedará disponible en `http://localhost:3000` con soporte completo para la API de IA, protección contra abuso de tasa (`express-rate-limit`) y fallback SPA.
 
 ---
 
@@ -144,7 +165,8 @@ El servidor quedará disponible en `http://localhost:3000` con soporte completo 
 
 - **Tus datos te pertenecen**: Todas las notas y carpetas se guardan exclusivamente en el almacenamiento local de tu navegador (`localStorage`).
 - **Sin rastreo ni cuentas obligatorias**: La app funciona de forma privada y autónoma sin necesidad de registrar un usuario.
-- **Uso de IA transparente**: El texto de las notas solo se envía al servidor cuando presionas explícitamente una de las acciones del botón **✨ Asistente IA**.
+- **Tipografías externas**: Las fuentes tipográficas (*Fraunces*, *Inter* e *IBM Plex Mono*) se descargan desde la CDN pública de Google Fonts (`fonts.googleapis.com` y `fonts.gstatic.com`).
+- **Uso de IA transparente**: El texto de las notas solo se envía al servidor cuando presionas explícitamente una de las acciones del botón **✨ Asistente IA**. Si la IA no está disponible o falla, la app aplica automáticamente una versión simplificada local sin interrumpir tu experiencia.
 
 ---
 

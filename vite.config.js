@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import { processNoteWithAI } from './server/aiService.js';
+import { validateAIRequest } from './server/validate.js';
 
 export default defineConfig({
   base: './',
@@ -17,15 +18,25 @@ export default defineConfig({
           req.on('data', chunk => { body += chunk; });
           req.on('end', async () => {
             try {
-              const data = JSON.parse(body || '{}');
-              const { action, text } = data;
-              if (!action || !text) {
+              let data = {};
+              try {
+                data = JSON.parse(body || '{}');
+              } catch {
                 res.statusCode = 400;
                 res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'Faltan parámetros requeridos (action, text).' }));
+                res.end(JSON.stringify({ error: 'Cuerpo JSON inválido.' }));
                 return;
               }
-              const result = await processNoteWithAI(action, text);
+
+              const validation = validateAIRequest(data);
+              if (!validation.valid) {
+                res.statusCode = validation.status;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: validation.error }));
+                return;
+              }
+
+              const result = await processNoteWithAI(validation.action, validation.text);
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify(result));
@@ -33,7 +44,7 @@ export default defineConfig({
               console.error('[Vite AI Middleware Error]:', err);
               res.statusCode = 500;
               res.setHeader('Content-Type', 'application/json');
-              res.end(JSON.stringify({ error: err.message || 'Error al procesar solicitud con IA.' }));
+              res.end(JSON.stringify({ error: 'No se pudo procesar la solicitud con IA.' }));
             }
           });
         });
