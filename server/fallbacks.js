@@ -100,7 +100,7 @@ export function applyFallback(action, text, rawText = '') {
     default:
       return {
         action,
-        result: text,
+        result: '',
         fallback: true
       };
   }

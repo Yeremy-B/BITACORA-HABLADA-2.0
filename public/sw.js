@@ -1,37 +1,32 @@
-// Bitácora Hablada Service Worker v2.3.0
-const CACHE_NAME = 'bitacora-hablada-v2.3.0';
+// Bitácora Hablada Service Worker v2.3.1
+const CACHE_NAME = 'bitacora-hablada-v2.3.1';
 
-// Utilidad para limpiar assets viejos con hash o limitar a 30 entradas
+// "index-wsuoET3l.js" -> "index.js"; devuelve null si no es un asset con hash de Vite
+function assetStem(pathname) {
+  const m = pathname.match(/\/assets\/(.+?)-[A-Za-z0-9_-]{8}\.(js|css)$/);
+  return m ? `${m[1]}.${m[2]}` : null;
+}
+
 async function manageAssetCache(cache, newUrl) {
   try {
-    const isJs = newUrl.pathname.endsWith('.js');
-    const isCss = newUrl.pathname.endsWith('.css');
+    const stem = assetStem(newUrl.pathname);
     const keys = await cache.keys();
 
-    // Eliminar versiones antiguas del mismo tipo (.js o .css)
-    if (isJs || isCss) {
+    if (stem) {
       for (const req of keys) {
-        try {
-          const u = new URL(req.url);
-          if (u.pathname.includes('/assets/') && req.url !== newUrl.href) {
-            if ((isJs && u.pathname.endsWith('.js')) || (isCss && u.pathname.endsWith('.css'))) {
-              await cache.delete(req);
-            }
-          }
-        } catch {
-          // Ignorar URLs inválidas
+        const u = new URL(req.url);
+        if (u.origin === newUrl.origin && u.href !== newUrl.href && assetStem(u.pathname) === stem) {
+          await cache.delete(req);
         }
       }
     }
 
-    // Limitar el caché de assets a un máximo de 30 entradas
-    const updatedKeys = await cache.keys();
-    const assetKeys = updatedKeys.filter((req) => req.url.includes('/assets/'));
+    const assetKeys = (await cache.keys()).filter((r) => {
+      const u = new URL(r.url);
+      return u.origin === newUrl.origin && u.pathname.includes('/assets/');
+    });
     if (assetKeys.length > 30) {
-      const toRemove = assetKeys.slice(0, assetKeys.length - 30);
-      for (const req of toRemove) {
-        await cache.delete(req);
-      }
+      for (const req of assetKeys.slice(0, assetKeys.length - 30)) await cache.delete(req);
     }
   } catch (err) {
     console.warn('[SW] Error gestionando caché de assets:', err);

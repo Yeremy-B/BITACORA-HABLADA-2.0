@@ -4,6 +4,7 @@
  */
 
 export const MAX_TEXT_LENGTH = 20000;
+export const VALID_ACTIONS = ['format_dictation', 'summarize', 'extract_tasks', 'suggest_title', 'title_and_tags'];
 
 export function validateAIRequest(data) {
   if (!data || typeof data !== 'object') {
@@ -21,6 +22,15 @@ export function validateAIRequest(data) {
       valid: false,
       status: 400,
       error: 'El parámetro "action" es requerido y debe ser una cadena de texto válida.'
+    };
+  }
+
+  const trimmedAction = action.trim();
+  if (!VALID_ACTIONS.includes(trimmedAction)) {
+    return {
+      valid: false,
+      status: 400,
+      error: 'Acción no soportada.'
     };
   }
 
@@ -42,7 +52,7 @@ export function validateAIRequest(data) {
 
   return {
     valid: true,
-    action: action.trim(),
+    action: trimmedAction,
     text
   };
 }

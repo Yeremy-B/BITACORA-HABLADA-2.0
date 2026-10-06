@@ -67,27 +67,32 @@ Integrado directamente en el editor y respaldado por un backend seguro con `@goo
 
 ```text
 bitacora-hablada/
+├── .gitignore              # Archivos y carpetas ignorados por Git
 ├── index.html              # Estructura principal, modales y panel de configuración
 ├── vite.config.js          # Configuración de empaquetado Vite con middleware dev
-├── server.js               # Servidor de producción Express con rate limit y proxy de IA
+├── server.js               # Servidor de producción Express con rate limit, trust proxy y proxy de IA
 ├── server/
 │   ├── aiService.js        # Integración con Google Gen AI SDK (@google/genai)
 │   ├── fallbacks.js        # Lógica de fallback local para modo offline / sin API
-│   └── validate.js         # Validación compartida de tamaño y formato para /api/ai
+│   └── validate.js         # Validación compartida de tamaño, formato y lista blanca para /api/ai
 ├── src/
 │   ├── main.js             # Lógica de la aplicación (dictado, notas, carpetas, voz, eventos)
 │   └── style.css           # Estilos completos, temas claro/oscuro y diseño responsivo
 ├── public/
 │   ├── manifest.json       # Manifiesto de la PWA
-│   ├── sw.js               # Service Worker v2.3.0 con caché offline inteligente
-│   ├── icon.svg            # Icono vectorial adaptado a zona segura (maskable y any)
+│   ├── sw.js               # Service Worker v2.3.1 con caché offline inteligente por stem
+│   ├── icon.svg            # Icono vectorial para propósitos estándar (any)
+│   ├── icon-maskable.svg   # Icono vectorial full-bleed para propósitos maskable en Android
 │   ├── icon-192.png        # Icono de la aplicación (192x192)
 │   └── icon-512.png        # Icono de la aplicación (512x512)
 ├── tests/
-│   └── aiService.test.js   # Pruebas unitarias de los fallbacks locales con test runner de Node
-├── .env.example            # Plantilla de variables de entorno (GEMINI_API_KEY, GEMINI_MODEL)
+│   ├── aiService.test.js        # Pruebas unitarias de los fallbacks locales
+│   ├── aiService.client.test.js # Pruebas unitarias del cliente de IA, reintentos y centinela
+│   └── validate.test.js         # Pruebas unitarias de validación y límites de /api/ai
+├── .env.example            # Plantilla de variables de entorno (GEMINI_API_KEY, GEMINI_MODEL, TRUST_PROXY)
 ├── eslint.config.js        # Configuración de ESLint (flat config)
 ├── package.json            # Dependencias y scripts de ejecución
+├── package-lock.json       # Árbol de dependencias bloqueado de npm
 ├── LICENSE                 # Licencia MIT (2026 Yeremy Briones Herrera)
 └── README.md               # Documentación del proyecto
 ```
@@ -121,9 +126,11 @@ Configura tus credenciales y modelo deseado si ejecutas el backend con IA:
 ```env
 GEMINI_API_KEY=tu_api_key_de_gemini
 GEMINI_MODEL=gemini-3.8-flash
+TRUST_PROXY=1
 ```
 - `GEMINI_API_KEY`: Clave de API de Google Gemini (inyectada automáticamente en Google AI Studio).
 - `GEMINI_MODEL`: Modelo de Gemini a emplear (por defecto `gemini-3.8-flash`).
+- `TRUST_PROXY`: Número de proxies reversos delante del servidor (1 para Cloud Run, Nginx o plataformas serverless; 0 para exposición directa). Permite que el limitador de tasa (`express-rate-limit`) calcule correctamente la IP del cliente y no la del balanceador de carga.
 
 ---
 

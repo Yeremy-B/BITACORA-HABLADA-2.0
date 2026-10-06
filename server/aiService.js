@@ -1,6 +1,8 @@
 import { GoogleGenAI } from '@google/genai';
 import { applyFallback } from './fallbacks.js';
 
+export const NO_TASKS_SENTINEL = 'SIN_TAREAS';
+
 let aiInstance = null;
 
 function getAIClient() {
@@ -21,14 +23,14 @@ function getAIClient() {
   return aiInstance;
 }
 
-export async function processNoteWithAI(action, text) {
+export async function processNoteWithAI(action, text, { client, retryBaseDelay = 600 } = {}) {
   if (!text || !text.trim()) {
     throw new Error('El texto de la nota está vacío.');
   }
 
   let ai;
   try {
-    ai = getAIClient();
+    ai = client ?? getAIClient();
   } catch (err) {
     console.warn('[AI Service] API no disponible, aplicando fallback local:', err.message);
     return applyFallback(action, text);
@@ -59,7 +61,7 @@ export async function processNoteWithAI(action, text) {
       systemInstruction =
         'Eres un asistente de productividad en español. ' +
         'Extrae de la nota todas las tareas pendientes, compromisos, fechas límite o acciones a realizar, en formato de lista con viñetas ("• "). ' +
-        'Si la nota no contiene tareas explícitas, responde únicamente con una cadena vacía. ' +
+        'Si la nota no contiene tareas explícitas ni acciones pendientes, responde ÚNICAMENTE con la palabra SIN_TAREAS (sin viñetas, comillas ni puntuación). ' +
         'No agregues introducciones ni despedidas.';
       prompt = `Extrae las tareas pendientes de esta nota:\n\n${text}`;
       break;
@@ -105,7 +107,7 @@ export async function processNoteWithAI(action, text) {
       }
       // Si la respuesta llegó sin texto y sin error, esperar con retroceso antes de reintentar
       if (attempt < 3) {
-        await new Promise(res => setTimeout(res, attempt * 600));
+        await new Promise(res => setTimeout(res, attempt * retryBaseDelay));
       }
     } catch (err) {
       lastError = err;
@@ -117,7 +119,7 @@ export async function processNoteWithAI(action, text) {
 
       const isTemporary = err.message && (err.message.includes('503') || err.message.includes('high demand') || err.message.includes('429'));
       if (attempt < 3 && isTemporary) {
-        await new Promise(res => setTimeout(res, attempt * 600));
+        await new Promise(res => setTimeout(res, attempt * retryBaseDelay));
       } else if (!isTemporary) {
         break;
       }
@@ -138,8 +140,12 @@ export async function processNoteWithAI(action, text) {
     return applyFallback(action, text);
   }
 
+  if (action === 'extract_tasks' && /^[\s"'«»•\-*]*SIN_TAREAS[\s."'«»]*$/i.test(resultText)) {
+    return { action, result: '', fallback: false };
+  }
+
   if (action === 'suggest_title') {
-    const cleanTitle = resultText.replace(/^["'#\s]+|["'\s]+$/g, '').trim();
+    const cleanTitle = resultText.replace(/^["'#\s]+|["'#.\s]+$/g, '').trim();
     return {
       action,
       title: cleanTitle,

@@ -11,6 +11,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Número de proxies de confianza delante del servidor (Cloud Run = 1). Usa 0 si se expone directo.
+app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 1));
+
 app.use(express.json({ limit: '2mb' }));
 
 // Límite de tasa para proteger la cuota de la API de IA (20 peticiones por minuto por IP)

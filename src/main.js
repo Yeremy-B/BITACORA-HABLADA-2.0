@@ -2026,17 +2026,17 @@
         } else {
           setStatus('Resumen generado.');
         }
-      } else if(action === 'extract_tasks'){
-        const result = data.result || '';
-        if(!result && data.fallback){
-          setStatus('IA no disponible: no se detectaron tareas pendientes en el texto.');
+      } else if (action === 'extract_tasks') {
+        const result = (data.result || '').trim();
+        if (!result) {
+          setStatus(data.fallback
+            ? 'IA no disponible: no se detectaron tareas con la versión local.'
+            : 'No se detectaron tareas pendientes en esta nota.');
         } else {
           openAiResultModal('✅ Tareas pendientes detectadas', result, 'extract_tasks');
-          if(data.fallback){
-            setStatus('IA no disponible: se aplicó una versión simplificada local.');
-          } else {
-            setStatus('Tareas extraídas.');
-          }
+          setStatus(data.fallback
+            ? 'IA no disponible: se aplicó una versión simplificada local.'
+            : 'Tareas extraídas.');
         }
       }
     } catch(err){
