@@ -76,8 +76,23 @@ bitacora-hablada/
 │   ├── fallbacks.js        # Lógica de fallback local para modo offline / sin API
 │   └── validate.js         # Validación compartida de tamaño, formato y lista blanca para /api/ai
 ├── src/
-│   ├── main.js             # Lógica de la aplicación (dictado, notas, carpetas, voz, eventos)
-│   └── style.css           # Estilos completos, temas claro/oscuro y diseño responsivo
+│   ├── main.js                                      # Punto de entrada y orquestador (inicialización del ciclo de vida)
+│   ├── state.js                                     # Estado global reactivo, elementos DOM y caché de notas
+│   ├── utils.js                                     # Utilidades puras (generación de IDs, formateo de fechas, paleta, escape)
+│   ├── ui.js                                        # Interfaz (menú móvil, modales de confirmación, toasts y compartir WhatsApp)
+│   ├── storage.js                                   # Persistencia Local-First con localStorage y cálculo de cuota
+│   ├── theme.js                                     # Gestión y alternancia de temas claro/oscuro
+│   ├── tts.js                                       # Síntesis de voz (Text-to-Speech), selección de voces y keep-alive
+│   ├── dictation.js                                 # Dictado por voz (Speech-to-Text) con motor anti-duplicación móvil
+│   ├── ai.js                                        # Asistente de IA (Gemini backend), modal de resultados y estado de red
+│   ├── trash.js                                     # Papelera de reciclaje (eliminación lógica, restauración y purga)
+│   ├── backup.js                                    # Exportación e importación de respaldos JSON
+│   ├── undo.js                                      # Vaciado del editor con deshacer (undo) y reversión de cambios de IA
+│   ├── render-folders.js                            # Renderizado de carpetas y flyout de vista previa flotante
+│   ├── render-notes.js                              # Renderizado de notas, métricas de lectura y vista previa rápida
+│   ├── notes.js                                     # Ciclo de vida de notas (autosave debounce, búsqueda global, mover notas)
+│   ├── events.js                                    # Registro centralizado de listeners y delegación de eventos del DOM
+│   └── style.css                                    # Estilos completos, temas claro/oscuro y diseño responsivo editorial
 ├── public/
 │   ├── manifest.json                                # Manifiesto de la PWA
 │   ├── sw.js                                        # Service Worker v2.3.1 con caché offline inteligente por stem

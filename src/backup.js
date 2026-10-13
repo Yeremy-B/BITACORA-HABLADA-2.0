@@ -2,7 +2,7 @@ import { state, notesCache } from './state.js';
 import { uid, colorForNewFolder } from './utils.js';
 import { loadNotes, persistNotes, persistFolders } from './storage.js';
 import { askConfirm, setStatus } from './ui.js';
-import { renderFolders } from './notes.js';
+import { renderFolders } from './render-folders.js';
 
 // ---------- RESPALDO (EXPORTAR / IMPORTAR JSON) ----------
 export async function exportBackup(){

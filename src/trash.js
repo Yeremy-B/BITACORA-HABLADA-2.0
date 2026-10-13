@@ -2,7 +2,8 @@ import { state, el, notesCache } from './state.js';
 import { uid, formatDate, escapeHtml, normalizeName, colorForNewFolder } from './utils.js';
 import { storageGet, storageSet, loadNotes, persistNotes, persistFolders } from './storage.js';
 import { askConfirm, setStatus } from './ui.js';
-import { renderFolders, renderNotes } from './notes.js';
+import { renderFolders } from './render-folders.js';
+import { renderNotes } from './render-notes.js';
 
 // ---------- PAPELERA ----------
 export const TRASH_MAX_DAYS = 30;

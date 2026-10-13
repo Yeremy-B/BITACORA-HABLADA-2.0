@@ -1,6 +1,7 @@
 import { el } from './state.js';
 import { setStatus } from './ui.js';
-import { triggerAutoSave, showUndoAiStatus } from './notes.js';
+import { triggerAutoSave } from './notes.js';
+import { showUndoAiStatus } from './undo.js';
 
 // ---------- ASISTENTE INVISIBLE DE PRODUCTIVIDAD (IA) ----------
 export let currentAiResult = '';

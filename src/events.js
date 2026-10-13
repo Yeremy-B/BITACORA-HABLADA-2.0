@@ -5,19 +5,16 @@ import {
   triggerAutoSave,
   addFolder,
   saveNote,
-  clearEditor,
-  renderNotes,
   setViewMode,
-  closeQuickPreview,
-  getCurrentPreviewNote,
   loadNoteIntoEditor,
   openSettingsModal,
   closeSettingsModal,
   cancelAutoSaveTimer,
   flushAutoSaveDraft,
-  setAutoSave,
-  showUndoAiStatus
+  setAutoSave
 } from './notes.js';
+import { clearEditor, showUndoAiStatus } from './undo.js';
+import { renderNotes, closeQuickPreview, getCurrentPreviewNote } from './render-notes.js';
 import { speak, stopSpeaking, populateVoices } from './tts.js';
 import { toggleDictation } from './dictation.js';
 import {
