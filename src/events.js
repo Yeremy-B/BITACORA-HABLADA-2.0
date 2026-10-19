@@ -11,10 +11,11 @@ import {
   closeSettingsModal,
   cancelAutoSaveTimer,
   flushAutoSaveDraft,
-  setAutoSave
+  setAutoSave,
+  updateEditorTasksBar
 } from './notes.js';
 import { clearEditor, showUndoAiStatus } from './undo.js';
-import { renderNotes, closeQuickPreview, getCurrentPreviewNote } from './render-notes.js';
+import { renderNotes, closeQuickPreview, getCurrentPreviewNote, getCurrentPreviewFolder } from './render-notes.js';
 import { speak, stopSpeaking, populateVoices } from './tts.js';
 import { toggleDictation } from './dictation.js';
 import {
@@ -28,6 +29,9 @@ import {
 import { openTrash, closeTrash, emptyTrash } from './trash.js';
 import { exportBackup, importBackupFile } from './backup.js';
 import { toggleTheme } from './theme.js';
+import { toggleTaskInEditor, handleTaskEnterKey } from './tasks.js';
+import { exportAsTxt, exportAsMarkdown, printNoteToPdf } from './export.js';
+import { openEditFolderModal, closeEditFolderModal, saveFolderEdit } from './folder-edit.js';
 
 export function initEvents(){
   // Menú móvil (carpetas en panel deslizable)
@@ -45,8 +49,27 @@ export function initEvents(){
   if(modalConfirm) modalConfirm.addEventListener('click', () => closeModal(true));
   if(modalOverlay) modalOverlay.addEventListener('click', (e) => { if(e.target === modalOverlay) closeModal(false); });
 
-  // Editor inputs
-  el.editor.addEventListener('input', triggerAutoSave);
+  // Editor inputs y tareas
+  el.editor.addEventListener('input', () => {
+    updateEditorTasksBar();
+    triggerAutoSave();
+  });
+  el.editor.addEventListener('keydown', (e) => {
+    handleTaskEnterKey(e, el.editor);
+    updateEditorTasksBar();
+  });
+  if(el.insertTaskBtn){
+    el.insertTaskBtn.addEventListener('click', () => {
+      toggleTaskInEditor(el.editor);
+      updateEditorTasksBar();
+    });
+  }
+  if(el.editorQuickInsertTaskBtn){
+    el.editorQuickInsertTaskBtn.addEventListener('click', () => {
+      toggleTaskInEditor(el.editor);
+      updateEditorTasksBar();
+    });
+  }
   if(el.noteTitleInput) el.noteTitleInput.addEventListener('input', triggerAutoSave);
   el.addFolderBtn.addEventListener('click', addFolder);
   el.newFolderInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') addFolder(); });
@@ -57,7 +80,10 @@ export function initEvents(){
   el.readingStopBtn.addEventListener('click', stopSpeaking);
   el.readingOverlay.addEventListener('click', (e) => { if(e.target === el.readingOverlay) stopSpeaking(); });
   el.saveBtn.addEventListener('click', saveNote);
-  el.clearBtn.addEventListener('click', clearEditor);
+  el.clearBtn.addEventListener('click', () => {
+    clearEditor();
+    updateEditorTasksBar();
+  });
 
   // Orden y búsqueda
   el.sortSelect.addEventListener('change', () => {
@@ -138,8 +164,17 @@ export function initEvents(){
     el.aiResultAppendBtn.addEventListener('click', () => {
       if(currentAiResult){
         const prev = el.editor.value.trim();
-        const header = currentAiAction === 'summarize' ? '\n\n--- Resumen ---\n' : '\n\n--- Tareas ---\n';
-        el.editor.value = prev + header + currentAiResult;
+        let header = '\n\n--- Tareas ---\n';
+        if(currentAiAction === 'summarize') header = '\n\n--- Resumen ---\n';
+        let formatted = currentAiResult;
+        if(currentAiAction === 'extract_tasks'){
+          formatted = currentAiResult
+            .split('\n')
+            .map(line => line.replace(/^(\s*)[•\-*]\s+/, '$1[ ] '))
+            .join('\n');
+        }
+        el.editor.value = prev + header + formatted;
+        updateEditorTasksBar();
         triggerAutoSave();
         closeAiResultModal();
         el.editor.focus();
@@ -151,7 +186,15 @@ export function initEvents(){
     el.aiResultReplaceBtn.addEventListener('click', () => {
       if(currentAiResult){
         const prevText = el.editor.value;
-        el.editor.value = currentAiResult;
+        let formatted = currentAiResult;
+        if(currentAiAction === 'extract_tasks'){
+          formatted = currentAiResult
+            .split('\n')
+            .map(line => line.replace(/^(\s*)[•\-*]\s+/, '$1[ ] '))
+            .join('\n');
+        }
+        el.editor.value = formatted;
+        updateEditorTasksBar();
         triggerAutoSave();
         closeAiResultModal();
         el.editor.focus();
@@ -229,6 +272,126 @@ export function initEvents(){
           setStatus('No se pudo copiar el texto automáticamente.', true);
         }
       }
+    });
+  }
+  if(el.quickPreviewTxtBtn){
+    el.quickPreviewTxtBtn.addEventListener('click', () => {
+      const note = getCurrentPreviewNote();
+      if(note){
+        exportAsTxt(note, getCurrentPreviewFolder());
+        setStatus('Nota descargada como .txt ✓');
+      }
+    });
+  }
+  if(el.quickPreviewPdfBtn){
+    el.quickPreviewPdfBtn.addEventListener('click', () => {
+      const note = getCurrentPreviewNote();
+      if(note){
+        printNoteToPdf(note, getCurrentPreviewFolder());
+      }
+    });
+  }
+
+  // Menú desplegable de Exportación en la barra de herramientas del editor
+  function getCurrentEditorNoteObject(){
+    const text = el.editor.value.trim();
+    const title = el.noteTitleInput ? el.noteTitleInput.value.trim() : '';
+    const activeFolder = state.folders.find(f => f.id === state.activeFolderId);
+    return {
+      title,
+      text,
+      createdAt: Date.now(),
+      folderName: activeFolder ? activeFolder.name : 'General'
+    };
+  }
+
+  function toggleExportMenu(){
+    if(!el.exportMenu) return;
+    const isOpen = el.exportMenu.classList.contains('open');
+    if(isOpen){
+      closeExportMenu();
+    } else {
+      el.exportMenu.classList.add('open');
+      document.addEventListener('click', handleOutsideExportClick);
+    }
+  }
+
+  function closeExportMenu(){
+    if(!el.exportMenu) return;
+    el.exportMenu.classList.remove('open');
+    document.removeEventListener('click', handleOutsideExportClick);
+  }
+
+  function handleOutsideExportClick(e){
+    if(el.exportDropdown && !el.exportDropdown.contains(e.target)){
+      closeExportMenu();
+    }
+  }
+
+  if(el.exportMenuBtn){
+    el.exportMenuBtn.addEventListener('click', toggleExportMenu);
+  }
+  if(el.exportTxtBtn){
+    el.exportTxtBtn.addEventListener('click', () => {
+      closeExportMenu();
+      const note = getCurrentEditorNoteObject();
+      if(!note.text && !note.title){
+        setStatus('Escribe algo en la nota antes de exportarla.', true);
+        return;
+      }
+      exportAsTxt(note, note.folderName);
+      setStatus('Nota descargada como .txt ✓');
+    });
+  }
+  if(el.exportMdBtn){
+    el.exportMdBtn.addEventListener('click', () => {
+      closeExportMenu();
+      const note = getCurrentEditorNoteObject();
+      if(!note.text && !note.title){
+        setStatus('Escribe algo en la nota antes de exportarla.', true);
+        return;
+      }
+      exportAsMarkdown(note, note.folderName);
+      setStatus('Nota descargada como .md (Markdown) ✓');
+    });
+  }
+  if(el.exportPdfBtn){
+    el.exportPdfBtn.addEventListener('click', () => {
+      closeExportMenu();
+      const note = getCurrentEditorNoteObject();
+      if(!note.text && !note.title){
+        setStatus('Escribe algo en la nota antes de imprimirla o guardarla en PDF.', true);
+        return;
+      }
+      printNoteToPdf(note, note.folderName);
+    });
+  }
+
+  // Eventos de edición y renombrado de carpetas
+  if(el.renameActiveFolderBtn){
+    el.renameActiveFolderBtn.addEventListener('click', () => {
+      if(state.activeFolderId){
+        openEditFolderModal(state.activeFolderId);
+      }
+    });
+  }
+  if(el.editFolderCloseX){
+    el.editFolderCloseX.addEventListener('click', closeEditFolderModal);
+  }
+  if(el.editFolderCancelBtn){
+    el.editFolderCancelBtn.addEventListener('click', closeEditFolderModal);
+  }
+  if(el.editFolderSaveBtn){
+    el.editFolderSaveBtn.addEventListener('click', saveFolderEdit);
+  }
+  if(el.editFolderNameInput){
+    el.editFolderNameInput.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter') saveFolderEdit();
+    });
+  }
+  if(el.editFolderOverlay){
+    el.editFolderOverlay.addEventListener('click', (e) => {
+      if(e.target === el.editFolderOverlay) closeEditFolderModal();
     });
   }
 

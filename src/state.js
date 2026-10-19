@@ -13,7 +13,8 @@ export const state = {
   searchGlobal: false,
   autoSave: true,
   voiceGenderFilter: 'male',
-  voicePitch: 'male'
+  voicePitch: 'male',
+  targetLang: 'en'
 };
 
 export const notesCache = {}; // folderId -> notas (para la vista previa al pasar el mouse)
@@ -105,5 +106,26 @@ export const el = {
   aiResultAppendBtn: document.getElementById('aiResultAppendBtn'),
   aiResultReplaceBtn: document.getElementById('aiResultReplaceBtn'),
   aiResultCloseBtn: document.getElementById('aiResultCloseBtn'),
-  aiResultCloseX: document.getElementById('aiResultCloseX')
+  aiResultCloseX: document.getElementById('aiResultCloseX'),
+  renameActiveFolderBtn: document.getElementById('renameActiveFolderBtn'),
+  editorTasksBar: document.getElementById('editorTasksBar'),
+  editorTasksStats: document.getElementById('editorTasksStats'),
+  editorTasksFill: document.getElementById('editorTasksFill'),
+  editorQuickInsertTaskBtn: document.getElementById('editorQuickInsertTaskBtn'),
+  insertTaskBtn: document.getElementById('insertTaskBtn'),
+  exportDropdown: document.getElementById('exportDropdown'),
+  exportMenuBtn: document.getElementById('exportMenuBtn'),
+  exportMenu: document.getElementById('exportMenu'),
+  exportTxtBtn: document.getElementById('exportTxtBtn'),
+  exportMdBtn: document.getElementById('exportMdBtn'),
+  exportPdfBtn: document.getElementById('exportPdfBtn'),
+  quickPreviewTxtBtn: document.getElementById('quickPreviewTxtBtn'),
+  quickPreviewPdfBtn: document.getElementById('quickPreviewPdfBtn'),
+  editFolderOverlay: document.getElementById('editFolderOverlay'),
+  editFolderModalTitle: document.getElementById('editFolderModalTitle'),
+  editFolderCloseX: document.getElementById('editFolderCloseX'),
+  editFolderNameInput: document.getElementById('editFolderNameInput'),
+  folderColorPalette: document.getElementById('folderColorPalette'),
+  editFolderCancelBtn: document.getElementById('editFolderCancelBtn'),
+  editFolderSaveBtn: document.getElementById('editFolderSaveBtn')
 };

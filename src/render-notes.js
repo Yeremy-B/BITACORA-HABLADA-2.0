@@ -1,14 +1,22 @@
 import { state, el } from './state.js';
 import { formatDate, escapeHtml } from './utils.js';
-import { shareToWhatsApp } from './ui.js';
+import { shareToWhatsApp, setStatus } from './ui.js';
 import { speak } from './tts.js';
+import { persistNotes } from './storage.js';
 import {
   renderGlobalSearchResults,
   deleteNote,
   toggleImportant,
   openMoveMenu,
-  loadNoteIntoEditor
+  loadNoteIntoEditor,
+  updateEditorTasksBar
 } from './notes.js';
+import {
+  getTaskStats,
+  hasTasks,
+  renderInteractiveTasksHtml,
+  toggleTaskByIndex
+} from './tasks.js';
 
 // ---------- VISTA PREVIA Y ESTRUCTURA DE NOTAS ----------
 export function getNotePreview(text, explicitTitle){
@@ -18,6 +26,7 @@ export function getNotePreview(text, explicitTitle){
   const chars = raw.length;
   const readSeconds = Math.max(1, Math.round(words / 3.2));
   const readTime = readSeconds < 60 ? `${readSeconds}s` : `${Math.ceil(readSeconds / 60)} min`;
+  const taskStats = getTaskStats(raw);
 
   if(cleanTitle){
     return {
@@ -25,7 +34,8 @@ export function getNotePreview(text, explicitTitle){
       body: raw,
       words,
       chars,
-      readTime
+      readTime,
+      taskStats
     };
   }
 
@@ -54,7 +64,7 @@ export function getNotePreview(text, explicitTitle){
     }
   }
 
-  return { title, body, words, chars, readTime };
+  return { title, body, words, chars, readTime, taskStats };
 }
 
 let currentPreviewNote = null;
@@ -80,12 +90,36 @@ export function openQuickPreview(note, folderName){
   if(note.id === state.currentNoteId){
     badgesHtml += '<span class="active-badge">✏️ En editor</span>';
   }
+  if(prev.taskStats && prev.taskStats.total > 0){
+    badgesHtml += `<span class="note-tasks-pill ${prev.taskStats.completed === prev.taskStats.total ? 'all-done' : ''}">☑️ ${prev.taskStats.completed}/${prev.taskStats.total} tareas (${prev.taskStats.percent}%)</span>`;
+  }
   badgesHtml += `<span class="note-stats-pill" title="${prev.words} palabras, ${prev.chars} caracteres">⏱️ ${prev.words} palabras · ${prev.chars} caracteres · ~${prev.readTime} de lectura</span>`;
   el.quickPreviewBadges.innerHTML = badgesHtml;
 
   el.quickPreviewTitle.textContent = prev.title;
   el.quickPreviewMeta.textContent = `📁 Carpeta: ${currentPreviewFolder} · 📅 ${formatDate(note.createdAt)}`;
-  el.quickPreviewContent.textContent = note.text;
+
+  if(hasTasks(note.text)){
+    el.quickPreviewContent.innerHTML = renderInteractiveTasksHtml(note.text);
+    el.quickPreviewContent.querySelectorAll('.task-checkbox').forEach(chk => {
+      chk.addEventListener('change', async () => {
+        const row = chk.closest('.task-item-row');
+        if(!row) return;
+        const taskIdx = parseInt(row.getAttribute('data-task-idx'), 10);
+        note.text = toggleTaskByIndex(note.text, taskIdx);
+        await persistNotes(state.activeFolderId, state.notes);
+        if(state.currentNoteId === note.id && el.editor){
+          el.editor.value = note.text;
+          updateEditorTasksBar();
+        }
+        renderNotes();
+        openQuickPreview(note, currentPreviewFolder);
+        setStatus('Tarea actualizada ✓');
+      });
+    });
+  } else {
+    el.quickPreviewContent.textContent = note.text;
+  }
 
   el.quickPreviewOverlay.classList.add('open');
 }
@@ -163,16 +197,17 @@ export function renderNotes(){
         <div class="note-card-badges">
           ${n.pinned ? '<span class="pinned-badge">📌 Fijada</span>' : ''}
           ${isCurrent ? '<span class="active-badge">✏️ En editor</span>' : ''}
+          ${prev.taskStats && prev.taskStats.total > 0 ? `<span class="note-tasks-badge ${prev.taskStats.completed === prev.taskStats.total ? 'all-done' : ''}">☑️ ${prev.taskStats.completed}/${prev.taskStats.total}</span>` : ''}
           <span class="note-date">📅 ${formatDate(n.createdAt)}</span>
           <span class="note-stats-pill" title="${prev.words} palabras, ${prev.chars} caracteres">⏱️ ${prev.words} pal · ${prev.readTime}</span>
         </div>
         <div class="note-actions">
-          <button class="icon-btn" title="Vista previa completa" data-act="preview">👁️</button>
-          <button class="icon-btn pin-btn${n.pinned ? ' active' : ''}" title="${n.pinned ? 'Quitar fijado' : 'Fijar arriba'}" data-act="pin">${n.pinned ? '📌' : '📍'}</button>
-          <button class="icon-btn" title="Compartir en WhatsApp" data-act="whatsapp">💬</button>
-          <button class="icon-btn" title="Leer en voz alta" data-act="play">🔊</button>
-          <button class="icon-btn" title="Mover a otra carpeta" data-act="move">📂</button>
-          <button class="icon-btn danger" title="Eliminar" data-act="del">🗑️</button>
+          <button class="icon-btn" type="button" title="Vista previa completa" aria-label="Vista previa completa" data-act="preview">👁️</button>
+          <button class="icon-btn pin-btn${n.pinned ? ' active' : ''}" type="button" title="${n.pinned ? 'Quitar fijado' : 'Fijar arriba'}" aria-label="${n.pinned ? 'Quitar fijado' : 'Fijar nota arriba'}" data-act="pin">${n.pinned ? '📌' : '📍'}</button>
+          <button class="icon-btn" type="button" title="Compartir en WhatsApp" aria-label="Compartir en WhatsApp" data-act="whatsapp">💬</button>
+          <button class="icon-btn" type="button" title="Leer en voz alta" aria-label="Leer nota en voz alta" data-act="play">🔊</button>
+          <button class="icon-btn" type="button" title="Mover a otra carpeta" aria-label="Mover a otra carpeta" data-act="move">📂</button>
+          <button class="icon-btn danger" type="button" title="Eliminar nota" aria-label="Eliminar nota" data-act="del">🗑️</button>
         </div>
       </div>
       <div class="note-preview-content">

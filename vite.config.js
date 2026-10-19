@@ -36,7 +36,9 @@ export default defineConfig({
                 return;
               }
 
-              const result = await processNoteWithAI(validation.action, validation.text);
+              const result = await processNoteWithAI(validation.action, validation.text, {
+                targetLang: validation.targetLang
+              });
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify(result));

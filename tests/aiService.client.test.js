@@ -131,4 +131,27 @@ describe('Cliente y Lógica de Gemini (server/aiService.js)', () => {
     assert.deepEqual(res.tags, ['estrategia', 'finanzas']);
     assert.equal(res.fallback, undefined);
   });
+
+  test('translate traduce correctamente el texto con el idioma destino', async () => {
+    let capturedPrompt = '';
+    const fakeClient = {
+      models: {
+        generateContent: async ({ contents }) => {
+          capturedPrompt = contents;
+          return { text: 'Hello, this is a spoken note.' };
+        }
+      }
+    };
+
+    const res = await processNoteWithAI('translate', 'Hola, esta es una bitácora hablada.', {
+      client: fakeClient,
+      retryBaseDelay: 5,
+      targetLang: 'en'
+    });
+
+    assert.equal(res.action, 'translate');
+    assert.equal(res.result, 'Hello, this is a spoken note.');
+    assert.ok(capturedPrompt.includes('inglés'));
+    assert.equal(res.fallback, undefined);
+  });
 });

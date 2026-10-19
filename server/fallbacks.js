@@ -59,6 +59,12 @@ export function fallbackTitleAndTags(text, rawText = '') {
   };
 }
 
+export function fallbackTranslate(text, targetLang = 'en') {
+  const clean = (text || '').trim();
+  if (!clean) return '';
+  return `[Servicio de traducción no disponible temporalmente (${targetLang})]\n\n${clean}`;
+}
+
 export function applyFallback(action, text, rawText = '') {
   switch (action) {
     case 'suggest_title': {
@@ -96,6 +102,14 @@ export function applyFallback(action, text, rawText = '') {
     }
     case 'title_and_tags': {
       return fallbackTitleAndTags(text, rawText);
+    }
+    case 'translate': {
+      const result = fallbackTranslate(text, rawText);
+      return {
+        action,
+        result,
+        fallback: true
+      };
     }
     default:
       return {

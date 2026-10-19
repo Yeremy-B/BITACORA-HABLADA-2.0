@@ -23,7 +23,7 @@
 <aside class="sidebar" id="sidebar">
   <div class="brand">
     <span class="brand-mark"></span><h1>Bitácora Hablada</h1>
-    <button class="sidebar-close-btn" id="sidebarCloseBtn" aria-label="Cerrar menú">✕</button>
+    <button class="sidebar-close-btn" id="sidebarCloseBtn" type="button" aria-label="Cerrar menú">✕</button>
   </div>
   <div class="brand-sub">escribe · escucha · guarda</div>
 
@@ -32,14 +32,14 @@
 
   <div class="new-folder">
     <input type="text" id="newFolderInput" placeholder="Nueva carpeta…" maxlength="40">
-    <button id="addFolderBtn" title="Crear carpeta">+</button>
+    <button id="addFolderBtn" type="button" title="Crear carpeta">+</button>
   </div>
 
   <div class="sidebar-foot">
     <p>Todo lo que escribes se guarda automáticamente en tu carpeta activa, incluso si cierras la aplicación.</p>
     <div class="sidebar-tools">
-      <button class="sidebar-tool-btn" id="trashBtn">🗑️ Papelera <span id="trashCount"></span></button>
-      <button class="sidebar-tool-btn" id="sidebarSettingsBtn">⚙️ Configuración</button>
+      <button class="sidebar-tool-btn" id="trashBtn" type="button">🗑️ Papelera <span id="trashCount"></span></button>
+      <button class="sidebar-tool-btn" id="sidebarSettingsBtn" type="button">⚙️ Configuración</button>
     </div>
     <div class="sidebar-version">
       <span>Versión</span>
@@ -60,8 +60,8 @@
     <p>Las notas eliminadas se guardan aquí. Puedes restaurarlas o borrarlas para siempre.</p>
     <div id="trashList" class="trash-list"></div>
     <div class="modal-actions">
-      <button class="btn btn-cancel" id="trashCloseBtn">Cerrar</button>
-      <button class="btn btn-danger" id="emptyTrashBtn">Vaciar papelera</button>
+      <button class="btn btn-cancel" id="trashCloseBtn" type="button">Cerrar</button>
+      <button class="btn btn-danger" id="emptyTrashBtn" type="button">Vaciar papelera</button>
     </div>
   </div>
 </div>
@@ -69,16 +69,19 @@
 <div class="reading-overlay" id="readingOverlay">
   <div class="reading-box">
     <div class="reading-text" id="readingText"></div>
-    <button class="btn btn-stop" id="readingStopBtn">⏹ Detener lectura</button>
+    <button class="btn btn-stop" id="readingStopBtn" type="button">⏹ Detener lectura</button>
   </div>
 </div>
 
 <main>
   <div class="topbar">
-    <button class="hamburger-btn" id="hamburgerBtn" aria-label="Abrir carpetas">☰</button>
+    <button class="hamburger-btn" id="hamburgerBtn" type="button" aria-label="Abrir carpetas">☰</button>
     <div class="topbar-text">
       <div class="topbar-eyebrow" id="folderEyebrow">carpeta activa</div>
-      <h2 id="folderTitle">General</h2>
+      <div class="folder-title-row">
+        <h2 id="folderTitle">General</h2>
+        <button class="folder-header-edit-btn" id="renameActiveFolderBtn" type="button" title="Renombrar o cambiar color de esta carpeta" aria-label="Editar carpeta">✏️</button>
+      </div>
     </div>
     <div class="topbar-right-controls">
       <div class="waveform" id="waveform" title="Ondas de voz / lectura">
@@ -108,11 +111,23 @@
       <input type="text" id="noteTitleInput" class="note-title-input" placeholder="Título de la nota (opcional)…" maxlength="120" autocomplete="off">
       <textarea id="editor" placeholder="Escribe aquí lo que quieras que la voz lea… o pulsa «Dictar» para hablar y que se escriba solo."></textarea>
 
+      <div class="editor-tasks-bar" id="editorTasksBar" style="display:none;">
+        <div class="editor-tasks-info">
+          <span class="editor-tasks-badge">☑️ Tareas</span>
+          <span class="editor-tasks-stats" id="editorTasksStats">0 de 0</span>
+        </div>
+        <div class="editor-tasks-track">
+          <div class="editor-tasks-fill" id="editorTasksFill" style="width:0%;"></div>
+        </div>
+        <button class="editor-tasks-quick-btn" id="editorQuickInsertTaskBtn" type="button" title="Añadir una nueva tarea [ ]">＋ Tarea</button>
+      </div>
+
       <div class="toolbar">
         <div class="toolbar-group">
-          <button class="btn btn-dictate" id="dictateBtn">🎙️ Dictar</button>
-          <button class="btn btn-primary" id="playBtn">🔊 Leer en voz alta</button>
-          <button class="btn btn-stop" id="stopBtn" disabled>⏹ Detener</button>
+          <button class="btn btn-dictate" id="dictateBtn" type="button">🎙️ Dictar</button>
+          <button class="btn btn-primary" id="playBtn" type="button">🔊 Leer en voz alta</button>
+          <button class="btn btn-stop" id="stopBtn" type="button" disabled>⏹ Detener</button>
+          <button class="btn btn-task" id="insertTaskBtn" type="button" title="Insertar o alternar casilla de tarea [ ]">☑️ Tarea</button>
         </div>
 
         <div class="toolbar-divider"></div>
@@ -167,8 +182,39 @@
         <div class="toolbar-divider"></div>
 
         <div class="toolbar-group">
-          <button class="btn btn-save" id="saveBtn">💾 Guardar nota</button>
-          <button class="btn btn-clear" id="clearBtn" title="Vaciar el editor">🧹 Borrar</button>
+          <button class="btn btn-save" id="saveBtn" type="button">💾 Guardar nota</button>
+
+          <div class="export-dropdown" id="exportDropdown">
+            <button class="btn btn-export" id="exportMenuBtn" type="button" title="Exportar nota individual (TXT, Markdown o PDF)">
+              📥 Exportar ▾
+            </button>
+            <div class="export-menu" id="exportMenu">
+              <div class="export-menu-header">Exportar nota</div>
+              <button class="export-menu-item" id="exportTxtBtn" type="button">
+                <span class="export-icon">📄</span>
+                <div class="export-item-text">
+                  <strong>Texto plano (.txt)</strong>
+                  <small>Descargar como archivo de texto</small>
+                </div>
+              </button>
+              <button class="export-menu-item" id="exportMdBtn" type="button">
+                <span class="export-icon">📝</span>
+                <div class="export-item-text">
+                  <strong>Markdown (.md)</strong>
+                  <small>Formato con título y metadatos</small>
+                </div>
+              </button>
+              <button class="export-menu-item" id="exportPdfBtn" type="button">
+                <span class="export-icon">🖨️</span>
+                <div class="export-item-text">
+                  <strong>Imprimir / Guardar como PDF</strong>
+                  <small>Documento limpio listo para PDF</small>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <button class="btn btn-clear" id="clearBtn" type="button" title="Vaciar el editor">🧹 Borrar</button>
         </div>
 
         <div class="toolbar-right">
@@ -230,16 +276,18 @@
   <div class="modal-box preview-modal-box">
     <div class="preview-modal-header">
       <div class="preview-modal-badges" id="quickPreviewBadges"></div>
-      <button class="sidebar-close-btn" id="quickPreviewCloseX" style="display:block;" aria-label="Cerrar vista previa">✕</button>
+      <button class="sidebar-close-btn" id="quickPreviewCloseX" type="button" style="display:block;" aria-label="Cerrar vista previa">✕</button>
     </div>
     <h3 class="preview-modal-title" id="quickPreviewTitle">Título de la nota</h3>
     <div class="preview-modal-meta" id="quickPreviewMeta"></div>
     <div class="preview-modal-content" id="quickPreviewContent"></div>
     <div class="modal-actions preview-modal-actions">
       <button class="btn btn-whatsapp" id="quickPreviewWhatsappBtn" type="button">💬 WhatsApp</button>
-      <button class="btn btn-ghost" id="quickPreviewCopyBtn" type="button">📋 Copiar texto</button>
-      <button class="btn btn-primary" id="quickPreviewSpeakBtn" type="button">🔊 Leer en voz alta</button>
-      <button class="btn btn-save" id="quickPreviewEditBtn" type="button">✏️ Abrir en editor</button>
+      <button class="btn btn-ghost" id="quickPreviewCopyBtn" type="button">📋 Copiar</button>
+      <button class="btn btn-ghost" id="quickPreviewTxtBtn" type="button" title="Descargar como archivo de texto">📄 .txt</button>
+      <button class="btn btn-ghost" id="quickPreviewPdfBtn" type="button" title="Imprimir o guardar como PDF">🖨️ PDF</button>
+      <button class="btn btn-primary" id="quickPreviewSpeakBtn" type="button">🔊 Leer</button>
+      <button class="btn btn-save" id="quickPreviewEditBtn" type="button">✏️ Editar</button>
       <button class="btn btn-cancel" id="quickPreviewCloseBtn" type="button">Cerrar</button>
     </div>
   </div>
@@ -249,7 +297,7 @@
   <div class="modal-box settings-modal-box">
     <div class="settings-modal-header">
       <h4>⚙️ Configuración</h4>
-      <button class="sidebar-close-btn" id="settingsCloseX" style="display:block;" aria-label="Cerrar configuración">✕</button>
+      <button class="sidebar-close-btn" id="settingsCloseX" type="button" style="display:block;" aria-label="Cerrar configuración">✕</button>
     </div>
 
     <div class="settings-content">
@@ -317,7 +365,6 @@
               <small>Organiza compromisos y pendientes en una lista</small>
             </div>
           </button>
-        </div>
       </div>
 
       <div class="settings-section">
@@ -378,7 +425,7 @@
   <div class="modal-box ai-result-box">
     <div class="ai-result-header">
       <h4 id="aiResultTitle">✨ Asistente IA</h4>
-      <button class="sidebar-close-btn" id="aiResultCloseX" style="display:block;" aria-label="Cerrar">✕</button>
+      <button class="sidebar-close-btn" id="aiResultCloseX" type="button" style="display:block;" aria-label="Cerrar">✕</button>
     </div>
     <div class="ai-result-body" id="aiResultBody"></div>
     <div class="modal-actions ai-result-actions">
@@ -395,11 +442,37 @@
     <h4 id="modalTitle">¿Eliminar?</h4>
     <p id="modalText">Esta acción no se puede deshacer.</p>
     <div class="modal-actions">
-      <button class="btn btn-cancel" id="modalCancel">Cancelar</button>
-      <button class="btn btn-danger" id="modalConfirm">Eliminar</button>
+      <button class="btn btn-cancel" id="modalCancel" type="button">Cancelar</button>
+      <button class="btn btn-danger" id="modalConfirm" type="button">Eliminar</button>
     </div>
   </div>
 </div>
+
+<div class="modal-overlay" id="editFolderOverlay">
+  <div class="modal-box edit-folder-box">
+    <div class="edit-folder-header">
+      <h4 id="editFolderModalTitle">📁 Editar carpeta</h4>
+      <button class="sidebar-close-btn" id="editFolderCloseX" type="button" style="display:block;" aria-label="Cerrar edición de carpeta">✕</button>
+    </div>
+    <div class="edit-folder-body">
+      <div class="settings-field">
+        <label class="settings-label" for="editFolderNameInput">Nombre de la carpeta:</label>
+        <input type="text" id="editFolderNameInput" class="edit-folder-input" maxlength="40" placeholder="Nombre de la carpeta…">
+      </div>
+      <div class="settings-field">
+        <label class="settings-label">Color distintivo:</label>
+        <p class="settings-field-hint">Selecciona un color para identificar visualmente esta carpeta y sus notas.</p>
+        <div class="folder-color-palette" id="folderColorPalette"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" id="editFolderCancelBtn" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="editFolderSaveBtn" type="button">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<div id="printContainer" class="print-container"></div>
 
   <script type="module" src="./src/main.js"></script>
 

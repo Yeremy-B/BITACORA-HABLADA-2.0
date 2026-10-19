@@ -69,10 +69,17 @@ describe('Fallback Local de IA (server/fallbacks.js)', () => {
   });
 
   test('applyFallback incluye siempre fallback: true en todas las acciones', () => {
-    const actions = ['format_dictation', 'suggest_title', 'summarize', 'extract_tasks', 'title_and_tags'];
+    const actions = ['format_dictation', 'suggest_title', 'summarize', 'extract_tasks', 'title_and_tags', 'translate'];
     for (const act of actions) {
       const res = applyFallback(act, 'Nota de prueba para verificar fallback.');
       assert.equal(res.fallback, true, `La acción ${act} debe retornar fallback: true`);
     }
+  });
+
+  test('fallbackTranslate retorna mensaje explicativo con texto original', () => {
+    const res = applyFallback('translate', 'Texto a traducir', 'en');
+    assert.equal(res.action, 'translate');
+    assert.equal(res.fallback, true);
+    assert.ok(res.result.includes('Texto a traducir'));
   });
 });

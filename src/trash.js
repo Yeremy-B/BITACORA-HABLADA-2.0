@@ -60,8 +60,8 @@ export function renderTrash(){
         <div class="trash-item-text">${escapeHtml(item.note.text)}</div>
       </div>
       <div class="trash-item-actions">
-        <button class="restore-btn" data-act="restore">↩ Restaurar</button>
-        <button class="forget-btn" data-act="forget">Borrar ya</button>
+        <button class="restore-btn" type="button" data-act="restore">↩ Restaurar</button>
+        <button class="forget-btn" type="button" data-act="forget">Borrar ya</button>
       </div>
     `;
     row.querySelector('[data-act="restore"]').addEventListener('click', () => restoreTrashItem(item.trashId));

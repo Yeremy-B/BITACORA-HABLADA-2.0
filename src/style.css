@@ -974,6 +974,7 @@ body.dark-mode .ai-result-body{
   border-color:var(--border);
   color:#F6F2E9;
 }
+
 .btn-ghost{background:transparent;color:var(--text-muted);padding:11px 10px;}
 .btn-ghost:hover{color:var(--text-dark);}
 .btn-clear{background:var(--paper-card);color:var(--danger);border:1.5px solid var(--border);}
@@ -2281,5 +2282,517 @@ body.dark-mode .autosave-quick-switch:hover{
   @media (max-width: 520px){
     .theme-text{ display:none; }
     .theme-toggle-btn{ padding:7px 10px; min-width:36px; justify-content:center; }
+  }
+}
+
+/* ==========================================================================
+   MEJORAS: TAREAS INTERACTIVAS, EXPORTACIÓN INDIVIDUAL Y EDICIÓN DE CARPETAS
+   ========================================================================== */
+
+/* 1. Tareas Interactivas (Checkboxes / To-Do) */
+.btn-task {
+  background: rgba(47,107,99,0.08);
+  color: var(--teal);
+  border: 1px solid rgba(47,107,99,0.25);
+  font-weight: 600;
+}
+.btn-task:hover {
+  background: var(--teal);
+  color: #fff;
+}
+body.dark-mode .btn-task {
+  background: rgba(62,163,148,0.15);
+  color: var(--teal-light);
+  border-color: rgba(62,163,148,0.35);
+}
+body.dark-mode .btn-task:hover {
+  background: var(--teal);
+  color: #10171C;
+}
+
+.editor-tasks-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--paper-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.editor-tasks-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.editor-tasks-badge {
+  font-weight: 700;
+  color: var(--teal);
+}
+.editor-tasks-stats {
+  color: var(--text-muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+}
+.editor-tasks-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(30,42,51,0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+body.dark-mode .editor-tasks-track {
+  background: rgba(255,255,255,0.1);
+}
+.editor-tasks-fill {
+  height: 100%;
+  background: var(--teal);
+  border-radius: 999px;
+  transition: width 0.25s ease, background-color 0.25s ease;
+}
+.editor-tasks-fill.all-done {
+  background: #10B981;
+}
+.editor-tasks-quick-btn {
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.editor-tasks-quick-btn:hover {
+  border-color: var(--teal);
+  color: var(--teal);
+  background: rgba(47,107,99,0.06);
+}
+
+/* Casillas interactivas en previsualización */
+.task-item-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 5px 0;
+  line-height: 1.5;
+}
+.task-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border);
+  border-radius: 5px;
+  outline: none;
+  cursor: pointer;
+  margin-top: 2px;
+  flex-shrink: 0;
+  display: grid;
+  place-content: center;
+  transition: all 0.15s ease;
+  background: var(--paper-card);
+}
+.task-checkbox:hover {
+  border-color: var(--teal);
+}
+.task-checkbox:checked {
+  background: var(--teal);
+  border-color: var(--teal);
+}
+.task-checkbox:checked::before {
+  content: "";
+  width: 9px;
+  height: 5px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+.task-label {
+  cursor: pointer;
+  color: var(--text-dark);
+  font-size: 15px;
+  user-select: text;
+  flex: 1;
+}
+.task-label.completed {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+.text-line {
+  margin-bottom: 4px;
+  line-height: 1.6;
+}
+.text-empty-line {
+  height: 10px;
+}
+.note-tasks-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(47,107,99,0.12);
+  color: var(--teal);
+  border: 1px solid rgba(47,107,99,0.2);
+}
+.note-tasks-badge.all-done {
+  background: rgba(16,185,129,0.14);
+  color: #059669;
+  border-color: rgba(16,185,129,0.3);
+}
+body.dark-mode .note-tasks-badge {
+  background: rgba(62,163,148,0.18);
+  color: var(--teal-light);
+  border-color: rgba(62,163,148,0.3);
+}
+body.dark-mode .note-tasks-badge.all-done {
+  background: rgba(16,185,129,0.22);
+  color: #34D399;
+  border-color: rgba(16,185,129,0.35);
+}
+.note-tasks-pill {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(47,107,99,0.12);
+  color: var(--teal);
+}
+.note-tasks-pill.all-done {
+  background: rgba(16,185,129,0.15);
+  color: #059669;
+}
+
+/* 2. Menú de Exportación Individual (.txt, .md, PDF) */
+.export-dropdown {
+  position: relative;
+  display: inline-block;
+}
+.btn-export {
+  background: rgba(58,110,165,0.08);
+  color: #2F5D8E;
+  border: 1px solid rgba(58,110,165,0.25);
+  font-weight: 600;
+}
+.btn-export:hover {
+  background: #3A6EA5;
+  color: #fff;
+}
+body.dark-mode .btn-export {
+  background: rgba(58,110,165,0.2);
+  color: #8EB9EC;
+  border-color: rgba(58,110,165,0.35);
+}
+body.dark-mode .btn-export:hover {
+  background: #3A6EA5;
+  color: #fff;
+}
+.export-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 120;
+  background: var(--paper-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.16);
+  min-width: 250px;
+  padding: 6px;
+}
+.export-menu.open {
+  display: block;
+}
+.export-menu-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding: 6px 10px 4px;
+}
+.export-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+.export-menu-item:hover {
+  background: rgba(47,107,99,0.08);
+}
+body.dark-mode .export-menu-item:hover {
+  background: rgba(255,255,255,0.08);
+}
+.export-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.export-item-text {
+  display: flex;
+  flex-direction: column;
+}
+.export-item-text strong {
+  font-size: 13px;
+  color: var(--text-dark);
+}
+.export-item-text small {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* 3. Edición y Renombrado de Carpetas */
+.folder-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.folder-header-edit-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px;
+  border-radius: 4px;
+  opacity: 0.6;
+  transition: all 0.15s ease;
+}
+.folder-header-edit-btn:hover {
+  opacity: 1;
+  background: rgba(0,0,0,0.06);
+  transform: scale(1.1);
+}
+body.dark-mode .folder-header-edit-btn:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+.folder-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+}
+.folder-action-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 3px 5px;
+  border-radius: 4px;
+  opacity: 0.5;
+  transition: all 0.15s ease;
+}
+.folder-item:hover .folder-action-btn,
+.folder-action-btn:focus {
+  opacity: 1;
+}
+.folder-action-btn:hover {
+  opacity: 1;
+  background: rgba(0,0,0,0.08);
+}
+body.dark-mode .folder-action-btn:hover {
+  background: rgba(255,255,255,0.15);
+}
+.folder-action-btn.folder-del:hover {
+  color: var(--danger);
+}
+
+/* Modal de edición de carpeta */
+.edit-folder-box {
+  max-width: 440px;
+  width: 90%;
+}
+.edit-folder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.edit-folder-header h4 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-dark);
+}
+.edit-folder-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.edit-folder-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--paper-card);
+  color: var(--text-dark);
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+}
+.edit-folder-input:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(47,107,99,0.15);
+}
+.folder-color-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+.color-swatch-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  display: grid;
+  place-content: center;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+}
+.color-swatch-btn:hover {
+  transform: scale(1.15);
+}
+.color-swatch-btn.active {
+  border-color: var(--text-dark);
+  box-shadow: 0 0 0 2px var(--paper-card), 0 0 0 4px var(--teal);
+  transform: scale(1.1);
+}
+.color-swatch-check {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+  display: none;
+}
+.color-swatch-btn.active .color-swatch-check {
+  display: block;
+}
+
+/* 4. Estilos de Impresión y PDF */
+.print-container {
+  display: none;
+}
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printContainer, #printContainer * {
+    visibility: visible;
+  }
+  #printContainer {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 32px 40px;
+    background: #ffffff !important;
+    color: #111827 !important;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  }
+  .print-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #E5E7EB;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+  }
+  .print-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #2F6B63;
+  }
+  .print-brand-mark {
+    color: #2F6B63;
+    font-size: 14px;
+  }
+  .print-folder-badge {
+    font-size: 12px;
+    background: #F3F4F6;
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: #4B5563;
+    font-weight: 600;
+  }
+  .print-title {
+    font-family: 'Fraunces', serif !important;
+    font-size: 26px;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+    color: #111827;
+  }
+  .print-meta {
+    font-size: 12px;
+    color: #6B7280;
+    margin-bottom: 16px;
+  }
+  .print-divider {
+    border: none;
+    border-top: 1px solid #E5E7EB;
+    margin: 16px 0 24px 0;
+  }
+  .print-body {
+    font-size: 14px;
+    line-height: 1.7;
+    color: #1F2937;
+  }
+  .print-paragraph {
+    margin-bottom: 14px;
+  }
+  .print-spacer {
+    height: 12px;
+  }
+  .print-task-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .print-task-box {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid #4B5563;
+    border-radius: 4px;
+    text-align: center;
+    line-height: 14px;
+    font-size: 11px;
+    font-weight: bold;
+    color: #111;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+  .print-task-item.completed .print-task-label {
+    text-decoration: line-through;
+    color: #6B7280;
+  }
+  .print-footer {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 1px solid #E5E7EB;
+    font-size: 11px;
+    color: #9CA3AF;
+    text-align: center;
   }
 }

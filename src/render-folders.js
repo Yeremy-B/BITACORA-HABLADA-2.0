@@ -2,6 +2,7 @@ import { state, el, notesCache } from './state.js';
 import { formatDate, escapeHtml } from './utils.js';
 import { loadNotes } from './storage.js';
 import { selectFolder, deleteFolder, loadNoteIntoEditor } from './notes.js';
+import { openEditFolderModal } from './folder-edit.js';
 
 // ---------- RENDER FOLDERS ----------
 const folderPreviewFlyout = document.getElementById('folderPreviewFlyout');
@@ -31,11 +32,18 @@ export function renderFolders(){
     li.className = 'folder-item' + (isActive ? ' active' : '');
     li.innerHTML = `
       <span class="folder-name">${f.color ? `<span class="folder-dot" style="background:${f.color}"></span>` : '📁'} ${escapeHtml(f.name)}</span>
-      <button class="folder-del" title="Eliminar carpeta" data-id="${f.id}">✕</button>
+      <div class="folder-item-actions">
+        <button class="folder-action-btn folder-edit" type="button" title="Renombrar y cambiar color" aria-label="Editar carpeta ${escapeHtml(f.name)}" data-id="${f.id}">✏️</button>
+        <button class="folder-action-btn folder-del" type="button" title="Eliminar carpeta" aria-label="Eliminar carpeta ${escapeHtml(f.name)}" data-id="${f.id}">✕</button>
+      </div>
     `;
     li.addEventListener('click', (e) => {
-      if(e.target.classList.contains('folder-del')) return;
+      if(e.target.closest('.folder-item-actions')) return;
       selectFolder(f.id);
+    });
+    li.querySelector('.folder-edit').addEventListener('click', (e) => {
+      e.stopPropagation();
+      openEditFolderModal(f.id);
     });
     li.querySelector('.folder-del').addEventListener('click', (e) => {
       e.stopPropagation();

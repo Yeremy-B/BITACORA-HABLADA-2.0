@@ -36,7 +36,9 @@ app.post('/api/ai', aiRateLimiter, async (req, res) => {
   }
 
   try {
-    const result = await processNoteWithAI(validation.action, validation.text);
+    const result = await processNoteWithAI(validation.action, validation.text, {
+      targetLang: validation.targetLang
+    });
     res.json(result);
   } catch (err) {
     console.error('[API AI Error]:', err);

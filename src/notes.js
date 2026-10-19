@@ -6,6 +6,7 @@ import { sendNoteToTrash } from './trash.js';
 import { speak } from './tts.js';
 import { renderFolders, hideFolderPreview } from './render-folders.js';
 import { renderNotes, getNotePreview, openQuickPreview } from './render-notes.js';
+import { getTaskStats, hasTasks } from './tasks.js';
 
 // ---------- BÚSQUEDA GLOBAL EN TODAS LAS CARPETAS ----------
 let searchToken = 0;
@@ -57,13 +58,14 @@ export async function renderGlobalSearchResults(query){
           <span class="search-folder-badge">📁 ${escapeHtml(folder.name)}</span>
           ${n.pinned ? '<span class="pinned-badge">📌 Fijada</span>' : ''}
           ${isCurrent ? '<span class="active-badge">✏️ En editor</span>' : ''}
+          ${prev.taskStats && prev.taskStats.total > 0 ? `<span class="note-tasks-badge ${prev.taskStats.completed === prev.taskStats.total ? 'all-done' : ''}">☑️ ${prev.taskStats.completed}/${prev.taskStats.total}</span>` : ''}
           <span class="note-date">📅 ${formatDate(n.createdAt)}</span>
           <span class="note-stats-pill">⏱️ ${prev.words} pal · ${prev.readTime}</span>
         </div>
         <div class="note-actions">
-          <button class="icon-btn" title="Vista previa completa" data-act="preview">👁️</button>
-          <button class="icon-btn" title="Compartir en WhatsApp" data-act="whatsapp">💬</button>
-          <button class="icon-btn" title="Leer en voz alta" data-act="play">🔊</button>
+          <button class="icon-btn" type="button" title="Vista previa completa" aria-label="Vista previa completa" data-act="preview">👁️</button>
+          <button class="icon-btn" type="button" title="Compartir en WhatsApp" aria-label="Compartir en WhatsApp" data-act="whatsapp">💬</button>
+          <button class="icon-btn" type="button" title="Leer en voz alta" aria-label="Leer nota en voz alta" data-act="play">🔊</button>
         </div>
       </div>
       <div class="note-preview-content">
@@ -170,6 +172,7 @@ export async function selectFolder(id){
   }
   state.activeFolderId = id;
   state.currentNoteId = null;
+  if(el.noteTitleInput) el.noteTitleInput.value = '';
   el.editor.value = '';
   hideFolderPreview();
   closeSidebar();
@@ -300,6 +303,7 @@ export async function autoSaveDraft(){
   await persistNotes(state.activeFolderId, state.notes);
   renderNotes();
   renderFolders();
+  updateEditorTasksBar();
   setStatus('Guardado automático ✓');
 }
 
@@ -328,7 +332,30 @@ export async function saveNote(){
   await persistNotes(state.activeFolderId, state.notes);
   renderNotes();
   renderFolders();
+  updateEditorTasksBar();
   setStatus('Nota guardada ✓');
+}
+
+export function updateEditorTasksBar(){
+  if(!el.editorTasksBar) return;
+  const text = el.editor ? el.editor.value : '';
+  if(!hasTasks(text)){
+    el.editorTasksBar.style.display = 'none';
+    return;
+  }
+  const stats = getTaskStats(text);
+  el.editorTasksBar.style.display = 'flex';
+  if(el.editorTasksStats){
+    el.editorTasksStats.textContent = `${stats.completed} de ${stats.total} (${stats.percent}%)`;
+  }
+  if(el.editorTasksFill){
+    el.editorTasksFill.style.width = `${stats.percent}%`;
+    if(stats.completed === stats.total && stats.total > 0){
+      el.editorTasksFill.classList.add('all-done');
+    } else {
+      el.editorTasksFill.classList.remove('all-done');
+    }
+  }
 }
 
 export function loadNoteIntoEditor(note){
@@ -337,6 +364,7 @@ export function loadNoteIntoEditor(note){
     el.noteTitleInput.value = note.title || '';
   }
   el.editor.value = note.text || '';
+  updateEditorTasksBar();
   if(window.innerWidth <= 860){
     setMobileTab('editor');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -356,6 +384,7 @@ export async function deleteNote(id){
   }
   if(state.currentNoteId === id){
     state.currentNoteId = null;
+    if(el.noteTitleInput) el.noteTitleInput.value = '';
     el.editor.value = '';
   }
   renderNotes();

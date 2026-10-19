@@ -24,6 +24,7 @@ Integrado directamente en el editor y respaldado por un backend seguro con `@goo
 - **💡 Sugerir título**: Analiza la nota y genera un título descriptivo y conciso (máximo 6 palabras).
 - **📝 Resumir ideas clave**: Sintetiza notas extensas en viñetas claras y accionables.
 - **✅ Extraer tareas pendientes**: Identifica compromisos, fechas o acciones pendientes y crea una lista de pendientes.
+- **🌐 Traductor de idiomas multilingüe**: Botón dedicado en la barra de herramientas para traducir notas a múltiples idiomas (inglés, francés, portugués, alemán, italiano, catalán, chino, japonés, ruso, árabe, español) con opciones para reemplazar texto o añadir la traducción al final en formato bilingüe.
 - **Fallback local inteligente**: En caso de no tener conexión a internet o saturación temporal del servicio, la app aplica reglas de puntuación y extracción local para no interrumpir tu flujo de trabajo.
 
 ### 🗣️ Síntesis de Voz Personalizable (Lectura en voz alta)
@@ -85,6 +86,7 @@ bitacora-hablada/
 │   ├── tts.js                                       # Síntesis de voz (Text-to-Speech), selección de voces y keep-alive
 │   ├── dictation.js                                 # Dictado por voz (Speech-to-Text) con motor anti-duplicación móvil
 │   ├── ai.js                                        # Asistente de IA (Gemini backend), modal de resultados y estado de red
+│   ├── translator.js                                # Traductor de idiomas multilingüe para el editor de notas
 │   ├── trash.js                                     # Papelera de reciclaje (eliminación lógica, restauración y purga)
 │   ├── backup.js                                    # Exportación e importación de respaldos JSON
 │   ├── undo.js                                      # Vaciado del editor con deshacer (undo) y reversión de cambios de IA

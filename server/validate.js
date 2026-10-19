@@ -4,7 +4,7 @@
  */
 
 export const MAX_TEXT_LENGTH = 20000;
-export const VALID_ACTIONS = ['format_dictation', 'summarize', 'extract_tasks', 'suggest_title', 'title_and_tags'];
+export const VALID_ACTIONS = ['format_dictation', 'summarize', 'extract_tasks', 'suggest_title', 'title_and_tags', 'translate'];
 
 export function validateAIRequest(data) {
   if (!data || typeof data !== 'object') {
@@ -15,7 +15,7 @@ export function validateAIRequest(data) {
     };
   }
 
-  const { action, text } = data;
+  const { action, text, targetLang } = data;
 
   if (typeof action !== 'string' || !action.trim()) {
     return {
@@ -50,9 +50,14 @@ export function validateAIRequest(data) {
     };
   }
 
+  const sanitizedLang = typeof targetLang === 'string' && targetLang.trim()
+    ? targetLang.trim().slice(0, 30)
+    : 'en';
+
   return {
     valid: true,
     action: trimmedAction,
-    text
+    text,
+    targetLang: sanitizedLang
   };
 }
